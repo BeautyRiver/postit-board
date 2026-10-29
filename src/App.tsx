@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { TakeoffProvider } from './components/TakeoffProvider';
 import { AuthProvider, useAuth } from './lib/auth';
+import { CONFIG_MISSING } from './lib/firebase';
 import { BoardLobby } from './pages/BoardLobby';
 import { GuestPage } from './pages/GuestPage';
 import { HostGate } from './pages/HostGate';
@@ -16,6 +17,17 @@ function HostOnly({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  if (CONFIG_MISSING) {
+    return (
+      <div className="config-error">
+        <div>
+          <strong>Firebase 설정값이 없어요</strong>
+          <code>.env.local</code> 파일을 만들고 값을 넣은 뒤 개발 서버를 다시 시작하세요.<br />
+          (docs/firebase-setup.md 5번 참고)
+        </div>
+      </div>
+    );
+  }
   return (
     <AuthProvider>
       <BrowserRouter>

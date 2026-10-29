@@ -47,7 +47,8 @@ export async function seedDemoBoard() {
   });
   // 포스트잇은 열린 방에만 붙으므로 잠깐 열었다가 닫는다
   const code = await BoardStore.openSession(board.id, { fresh: true });
-  for (const item of SEED_POSTITS) await BoardStore.addPostit(board.id, code, item);
+  // 본문 200자 제한(보안 규칙)에 맞춰 자름 — 프로토타입 샘플 중 하나가 더 김
+  for (const item of SEED_POSTITS) await BoardStore.addPostit(board.id, code, { ...item, body: item.body.slice(0, 200) });
   await BoardStore.closeSession(board.id);
   return board;
 }

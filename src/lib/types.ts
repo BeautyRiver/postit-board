@@ -8,8 +8,10 @@ export interface BoardSession {
   lastSeen: number;      // ms — 벽 화면이 주기적으로 갱신(하트비트). 오래되면 닫힌 것으로 본다
 }
 
+// Firestore boards/{id}
 export interface Board {
   id: string;
+  ownerUid: string;
   session: BoardSession | null;  // null = 닫힘
   title: string;         // ≤40
   subtitle: string;      // ≤40, 선택
@@ -17,6 +19,16 @@ export interface Board {
   createdAt: number;     // ms
 }
 
+// Firestore rooms/{code} — 참여자가 코드로 찾고 구독하는 문서. 열 때 만들고 닫을 때 지움.
+// 하트비트는 boards 문서에만 쓰므로 참여자 구독에는 영향이 없다 (읽기 횟수 절약)
+export interface RoomInfo {
+  code: string;
+  boardId: string;
+  title: string;
+  subtitle: string;
+}
+
+// Firestore boards/{id}/postits/{postitId}
 export interface Postit {
   id: string;
   body: string;          // ≤200
@@ -24,7 +36,7 @@ export interface Postit {
   anonymous: boolean;
   color: PostitColor;
   category: CategoryId;
-  photoUrl: string | null;
+  photoUrl: string | null;     // 사진 data URL (Storage 미사용)
   photoCaption: string | null;
   createdAt: number;     // ms
 }

@@ -70,7 +70,17 @@
 4. **위치(Location)**: **`asia-northeast3 (Seoul)`** 선택
    - ⚠ **생성 후 바꿀 수 없습니다.** 한국에서 쓰므로 서울이 가장 빠릅니다.
 5. 보안 규칙: **프로덕션 모드에서 시작**(Start in production mode) 선택 → **만들기**
-   - 처음엔 모든 접근이 막혀 있습니다. 2단계에서 앱에 맞는 규칙을 드리면 **규칙(Rules) 탭**에 붙여넣고 **게시**하면 됩니다.
+   - 처음엔 모든 접근이 막혀 있습니다. 아래 **4-1**에서 앱용 규칙을 붙여넣어야 앱이 동작합니다.
+
+### 4-1. 보안 규칙 게시 (규칙 파일이 바뀔 때마다)
+
+1. 저장소의 **`firestore.rules`** 파일을 열어 **내용 전체를 복사**
+   (GitHub 저장소 페이지에서 `firestore.rules` 클릭 → 오른쪽 위 복사 버튼)
+2. 콘솔 **Firestore Database → 규칙(Rules)** 탭
+3. 기존 내용을 **모두 지우고** 붙여넣기 → **게시(Publish)**
+4. 1분 정도 지나면 적용됩니다
+
+> Firebase CLI를 설치했다면 저장소 폴더에서 `firebase deploy --only firestore:rules` 한 줄로도 됩니다.
 
 > **Storage(사진 저장소)는 만들지 마세요.** 만들려고 하면 요금제 업그레이드(카드 등록)를 요구합니다.
 
@@ -112,7 +122,7 @@ VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...
 
 ---
 
-## 7. (4~5단계 때 필요) Firebase CLI 설치
+## 7. (선택) Firebase CLI 설치
 
 보안 규칙 배포·사이트 배포용 명령줄 도구입니다. 지금 미리 해 둬도 됩니다.
 
@@ -163,3 +173,20 @@ npm install
 
 Firebase CLI(`firebase-tools`)는 그 PC에서 `firebase` 명령(보안 규칙 배포, 에뮬레이터 등)을 직접 쓸 때만 설치·로그인하면 됩니다.
 사이트 배포는 GitHub Actions가 하므로 CLI 없이 푸시만 하면 됩니다.
+
+## 10. (개발용) 로컬 에뮬레이터로 테스트
+
+실제 데이터를 건드리지 않고 PC에서 가짜 Firebase로 테스트할 수 있습니다. Firebase CLI와 Java 11 이상이 필요합니다.
+
+1. 터미널 1: `npm run emulators` (로그인·Firestore 에뮬레이터 실행, `firestore.rules` 자동 적용)
+2. `.env.local`에 `VITE_USE_EMULATORS=true` 한 줄 추가 → 터미널 2: `npm run dev`
+3. 강사 로그인 팝업에서 **Add new account**로 가짜 Google 계정을 만들고, 화면에 나온 UID를
+   아래 명령으로 admins에 등록:
+   ```bash
+   curl -X PATCH -H "Authorization: Bearer owner" -H "Content-Type: application/json" \
+     -d '{"fields":{"name":{"stringValue":"테스트"}}}' \
+     "http://127.0.0.1:8080/v1/projects/demo-postit/databases/(default)/documents/admins/<UID>"
+   ```
+4. 끝나면 `.env.local`에서 `VITE_USE_EMULATORS=true` 줄을 지우거나 주석 처리
+
+보안 규칙 자동 테스트: `npm run test:rules`

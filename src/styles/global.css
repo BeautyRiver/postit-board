@@ -1111,3 +1111,12 @@ html, body { height: 100dvh; }
 /* QR 카드: 사이트 주소 대신 4자리 입장 코드를 크게 (프로젝터 뒤쪽 자리에서도 보이도록) */
 .qr-card-code-label { font-size: 10px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.05em; margin-top: 2px; }
 .qr-card-code { font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 600; letter-spacing: 0.12em; color: var(--accent); line-height: 1.2; }
+
+/* 강사 로그인: 등록되지 않은 계정의 UID 안내 */
+.gate-uid { margin-top: 12px; padding: 12px 14px; background: #f3f4f6; border-radius: 10px; font-size: 12px; line-height: 1.6; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.gate-uid code { font-family: 'JetBrains Mono', monospace; }
+.gate-uid-value { display: block; font-size: 12px; color: var(--ink); background: #fff; border: 1px solid rgba(0,0,0,.08); border-radius: 6px; padding: 6px 8px; word-break: break-all; user-select: all; }
+
+/* 앱 시작 오류 (Firebase 설정값 없음 등) */
+.config-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--paper); text-align: center; font-size: 14px; line-height: 1.7; color: var(--ink-soft); }
+.config-error strong { display: block; font-size: 18px; color: var(--ink); margin-bottom: 8px; }

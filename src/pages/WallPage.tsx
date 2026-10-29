@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { BoardForm } from '../components/BoardForm';
 import { Clouds } from '../components/Clouds';
@@ -65,13 +65,21 @@ export function WallPage() {
     if (board === null) navigate('/host', { replace: true });
   }, [board, navigate]);
 
-  // 벽이 열려 있는 동안 입장 세션 유지 (하트비트). 새로고침이면 기존 코드 그대로 이어감
+  // 벽이 열려 있는 동안 입장 세션 유지. 처음엔 세션 확인(새로고침이면 기존 코드 그대로 이어감),
+  // 이후 30초마다 하트비트(쓰기 1회). 세션이 끊겨 있으면 다시 열어 새 코드 발급
+  const latestBoard = useRef(board);
+  useEffect(() => { latestBoard.current = board; }, [board]);
   const boardExists = !!board;
   useEffect(() => {
     if (!boardId || !boardExists) return;
-    const keepAlive = () => { BoardStore.openSession(boardId, { fresh: false }).catch(() => {}); };
-    keepAlive();
-    const t = setInterval(keepAlive, HEARTBEAT_MS);
+    BoardStore.openSession(boardId, { fresh: false }).catch(() => {});
+    const t = setInterval(() => {
+      const s = latestBoard.current?.session;
+      const beat = s && isSessionActive(s)
+        ? BoardStore.heartbeat(boardId)
+        : BoardStore.openSession(boardId, { fresh: false });
+      beat.catch(() => {});
+    }, HEARTBEAT_MS);
     return () => clearInterval(t);
   }, [boardId, boardExists]);
 

@@ -1,0 +1,118 @@
+rules_version = '2';
+
+// 의견을 나누는 포스트잇 — Firestore 보안 규칙
+// 적용: Firebase 콘솔 → Firestore Database → 규칙 탭에 전체 붙여넣기 → 게시
+//      (또는 Firebase CLI: firebase deploy --only firestore:rules)
+//
+// 구조
+//   admins/{uid}                 강사 목록 (콘솔에서만 추가)
+//   boards/{boardId}             보드 + session{code, openedAt, lastSeen} — 강사만 쓰기
+//   boards/{boardId}/postits/*   포스트잇 — 참여자는 "열린 방의 현재 코드"로 만들기만, 읽기·삭제는 강사
+//   rooms/{code}                 열린 방(4자리 코드 → 보드) — 강사만 쓰기, 로그인 사용자는 코드로 단건 조회만
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Google로 로그인했고 admins에 등록된 계정
+    function isHost() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function boardDoc(boardId) {
+      return get(/databases/$(database)/documents/boards/$(boardId));
+    }
+
+    function isText(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    // 세션: null(닫힘) 또는 {code: 4자리 숫자, openedAt, lastSeen}
+    function validSession(s) {
+      return s == null
+        || (s is map
+            && s.keys().hasOnly(['code', 'openedAt', 'lastSeen'])
+            && s.code is string && s.code.matches('[0-9]{4}')
+            && s.openedAt is timestamp && s.lastSeen is timestamp);
+    }
+
+    function validBoard(d) {
+      return d.keys().hasOnly(['ownerUid', 'title', 'subtitle', 'instructor', 'session', 'createdAt'])
+        && isText(d.title, 1, 40)
+        && isText(d.subtitle, 0, 40)
+        && isText(d.instructor, 1, 20)
+        && validSession(d.session)
+        && d.createdAt is timestamp;
+    }
+
+    // 방이 지금 열려 있는지: 보드 세션 코드가 일치하고 하트비트가 90초 이내 (앱의 SESSION_TTL_MS와 같은 값)
+    function roomIsOpen(boardId, code) {
+      let s = boardDoc(boardId).data.session;
+      return s != null && s.code == code && s.lastSeen > request.time - duration.value(90, 's');
+    }
+
+    function validPostit(d) {
+      return d.keys().hasOnly(['body', 'author', 'anonymous', 'color', 'category', 'photoUrl', 'photoCaption', 'authorUid', 'code', 'createdAt'])
+        && isText(d.body, 1, 200)
+        && isText(d.author, 1, 20)
+        && d.anonymous is bool
+        && d.color in ['yellow', 'pink', 'green', 'blue', 'orange', 'purple', 'mint', 'white']
+        && d.category in ['question', 'praise', 'improve', 'etc']
+        // 사진: data URL, 700,000자 이하 (앱의 PHOTO_MAX_CHARS와 같은 값)
+        && (d.photoUrl == null
+            || (d.photoUrl is string && d.photoUrl.size() <= 700000
+                && d.photoUrl.matches('data:image/(jpeg|png|webp|svg\\+xml)[;,].*')))
+        && (d.photoCaption == null || isText(d.photoCaption, 0, 40))
+        && d.authorUid == request.auth.uid
+        && d.code is string
+        && d.createdAt == request.time;
+    }
+
+    match /admins/{uid} {
+      // 자기 문서만 확인 가능 (강사 여부 확인용). 추가·삭제는 콘솔에서만
+      allow get: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /boards/{boardId} {
+      // 참여자도 입장 확인을 위해 단건 조회는 가능, 목록 조회는 강사만
+      allow get: if signedIn();
+      allow list: if isHost();
+      allow create: if isHost()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.session == null
+        && validBoard(request.resource.data);
+      allow update: if isHost()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validBoard(request.resource.data);
+      allow delete: if isHost() && resource.data.ownerUid == request.auth.uid;
+
+      match /postits/{postitId} {
+        allow read: if isHost();
+        allow create: if signedIn()
+          && validPostit(request.resource.data)
+          && roomIsOpen(boardId, request.resource.data.code);
+        allow delete: if isHost() && boardDoc(boardId).data.ownerUid == request.auth.uid;
+      }
+    }
+
+    match /rooms/{code} {
+      // 코드를 아는 사람만 단건 조회 (목록 조회로 열린 방 코드를 알아낼 수 없게)
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if isHost()
+        && code.matches('[0-9]{4}')
+        && request.resource.data.keys().hasOnly(['boardId', 'ownerUid', 'title', 'subtitle', 'openedAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.boardId is string
+        && isText(request.resource.data.title, 1, 40)
+        && isText(request.resource.data.subtitle, 0, 40);
+      allow delete: if isHost();
+    }
+  }
+}

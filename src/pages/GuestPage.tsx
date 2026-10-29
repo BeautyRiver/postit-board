@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { BoardStore, useBoardByCode } from '../lib/boardStore';
+import { ensureGuestUser, useGuestAuth } from '../lib/auth';
+import { BoardStore, RoomClosedError, useRoom } from '../lib/boardStore';
 import { CATEGORIES, CODE_LENGTH, LIMITS, POSTIT_COLORS, colorValue } from '../lib/constants';
-import { blobToDataUrl, resizeImage } from '../lib/image';
-import type { Board, CategoryId, PostitColor } from '../lib/types';
+import { photoToDataUrl } from '../lib/image';
+import type { CategoryId, PostitColor, RoomInfo } from '../lib/types';
 
 const NAME_KEY = 'postit.guestName';
 const DRAFT_KEY = 'postit.guestDraft';
@@ -81,7 +82,7 @@ function GuestJoin({ code, notice, onJoin }: {
 }
 
 // 참여자 — 의견 작성
-function GuestForm({ board, code }: { board: Board; code: string }) {
+function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void }) {
   const [draft] = useState(readDraft);
   const [body, setBody] = useState(draft.body ?? '');
   const [color, setColor] = useState<PostitColor>(draft.color ?? 'yellow');
@@ -94,11 +95,11 @@ function GuestForm({ board, code }: { board: Board; code: string }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const sendingRef = useRef(false);
+  const sendingRef = useRef(false);  // 연타 시 같은 의견이 두 번 붙지 않도록 (state는 다음 렌더까지 반영이 늦음)
 
   useEffect(() => {
     saveDraft(body ? { body, color, category, anonymous } : null);
-  }, [body, color, category, anonymous]);  // 연타 시 같은 의견이 두 번 붙지 않도록 (state는 다음 렌더까지 반영이 늦음)
+  }, [body, color, category, anonymous]);
 
   async function handlePhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -107,8 +108,8 @@ function GuestForm({ board, code }: { board: Board; code: string }) {
     setPhotoBusy(true);
     setError(null);
     try {
-      // 1단계: 리사이즈 후 data URL로 보관. 3단계에서 Storage 업로드로 교체
-      setPhoto(await blobToDataUrl(await resizeImage(file)));
+      // Storage 없이 포스트잇 문서에 함께 저장 → 긴 변 1000px, 용량 상한까지 줄인 JPEG data URL
+      setPhoto(await photoToDataUrl(file));
     } catch {
       setError('사진을 불러오지 못했어요. 다른 사진을 선택해 주세요.');
     } finally {
@@ -124,7 +125,7 @@ function GuestForm({ board, code }: { board: Board; code: string }) {
     setSending(true);
     setError(null);
     try {
-      await BoardStore.addPostit(board.id, code, {
+      await BoardStore.addPostit(room.boardId, room.code, {
         body: body.trim().slice(0, LIMITS.body),
         author: isAnon ? '익명' : author,
         anonymous: isAnon,
@@ -142,7 +143,8 @@ function GuestForm({ board, code }: { board: Board; code: string }) {
         setPhoto(null);
       }, 1800);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '보내지 못했어요. 다시 시도해 주세요.');
+      if (err instanceof RoomClosedError) { onClosed(); return; }  // 쓰던 글은 draft로 보관됨
+      setError('보내지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -155,7 +157,7 @@ function GuestForm({ board, code }: { board: Board; code: string }) {
     <div className="guest-form">
       <div className="guest-header">
         <h1>오늘 수업, 어떠셨나요?</h1>
-        <p>{board.subtitle ? board.subtitle + ' · ' : ''}{board.title}</p>
+        <p>{room.subtitle ? room.subtitle + ' · ' : ''}{room.title}</p>
       </div>
 
       <div className="guest-card">
@@ -267,24 +269,30 @@ function GuestForm({ board, code }: { board: Board; code: string }) {
 // 코드가 틀렸거나 방이 닫혀 있으면(강사가 나감·탭 닫음) 입장 불가, 작성 중 방이 닫히면 코드 입력 화면으로
 export function GuestPage() {
   const { code } = useParams();
-  const board = useBoardByCode(code);
+  const { ready, error } = useGuestAuth();   // 익명 로그인 (보안 규칙상 로그인한 사용자만 읽기·쓰기)
+  const room = useRoom(code, ready);
   const navigate = useNavigate();
   // 이 코드로 입장했던 적이 있는지 (→ 지금 null이면 '방이 닫힘' 안내)
   const [joinedCode, setJoinedCode] = useState<string | null>(null);
-  if (board && code && joinedCode !== code) setJoinedCode(code);
+  // 제출하다가 방이 닫힌 것을 알게 된 코드 (탭을 그냥 닫아 rooms 문서가 남아 있는 경우)
+  const [closedCode, setClosedCode] = useState<string | null>(null);
+  if (room && code && joinedCode !== code) setJoinedCode(code);
 
   async function onJoin(input: string) {
     const c = input.trim();
-    const found = await BoardStore.findByCode(c);
+    const found = await ensureGuestUser().then(() => BoardStore.findByCode(c)).catch(() => null);
     if (!found) return false;
+    setClosedCode(null);
     navigate(`/b/${c}`);
     return true;
   }
 
   let content = null;
-  if (board && code) {
-    content = <GuestForm key={board.id + code} board={board} code={code} />;
-  } else if (board === null) {
+  if (error) {
+    content = <div className="guest-form"><div className="guest-header"><h1>연결 오류</h1><p>{error}</p></div></div>;
+  } else if (room && code && closedCode !== code) {
+    content = <GuestForm key={room.boardId + code} room={room} onClosed={() => setClosedCode(code)} />;
+  } else if (room === null || (room && closedCode === code)) {
     const notice: JoinNotice = code ? (joinedCode === code ? 'closed' : 'inactive') : null;
     content = <GuestJoin key={(code || '') + notice} code={notice === 'closed' ? '' : code} notice={notice} onJoin={onJoin} />;
   }

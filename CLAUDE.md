@@ -34,20 +34,24 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
   - 벽은 30초마다 하트비트(`lastSeen` 갱신). "보드 목록"/"로그아웃"으로 나가면 즉시 닫힘, 탭을 그냥 닫으면 90초 후 자동 닫힘
   - 닫힌 방 코드 입력 → "활성화된 방이 아니에요" 경고. 작성 중 방이 닫히면 코드 입력 화면으로 돌아가고 쓰던 글은 sessionStorage에 보관
   - 포스트잇은 열린 방의 현재 코드로만 붙일 수 있음(`addPostit(boardId, code, item)`). Firestore에서는 보안 규칙으로 강제할 것
-  - Firestore 설계안: `boards/{id}.session = {code, openedAt, lastSeen}` + `sessionCodes/{code} → {boardId, lastSeen}`(코드 조회·중복 방지, 트랜잭션)
+  - Firestore 구조: `boards/{id}.session = {code, openedAt, lastSeen}` + `rooms/{code} → {boardId, ownerUid, title, subtitle, openedAt}`(코드 조회·중복 방지, 트랜잭션)
+  - **읽기 절약 원칙**: 하트비트는 `boards` 문서에만 쓰고, 참여자는 `boards`를 구독하지 않는다(입장 시 1회 get). 참여자는 하트비트로 바뀌지 않는 `rooms/{code}`만 구독 → 강사가 나가면(rooms 삭제) 즉시 알림. 탭을 그냥 닫은 경우는 참여자가 제출할 때 보안 규칙이 거부(`RoomClosedError`)해서 알게 됨
+  - 강사 권한: Google 로그인 + `admins/{uid}` 문서 존재. 미등록 계정이면 로그인 화면에 UID 표시
   - 보드 삭제 확인은 보드 코드 대신 `삭제` 입력
 
 ## 진행 단계 (design_handoff_postit_board/README.md "권장 작업 순서")
 1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료
-2. Firebase 연결 (Auth, Firestore onSnapshot)
-3. 사진 첨부 (Firestore 저장, 크기 제한) — 실제 QR은 1단계에서 완료
-4. 보안 규칙 · 보드 삭제 시 하위 데이터 정리
+2. ✅ Firebase 연결 (Auth, Firestore onSnapshot) — 완료
+3. ✅ 사진 첨부 (1000px JPEG data URL, 700,000자 상한) — 완료
+4. ✅ 보안 규칙(`firestore.rules`, 테스트 `tests/`) · 보드 삭제 시 포스트잇·방 삭제 — 완료 (규칙 변경 시 콘솔에 다시 게시 필요)
 5. ✅ 배포 설정 (Firebase Hosting + GitHub Actions 자동 배포) — 완료
 
 ## 코드 구조
-- `src/lib/boardStore.ts` — 저장소 API(`BoardStore`(+ `openSession/closeSession/findByCode`) + `useBoards/useBoard/useBoardByCode/usePostits/usePostitCount/useNow`). 모두 비동기·구독형이라 Firestore로 구현만 교체하면 됨
-- `src/lib/auth.tsx` — 강사 인증(`useAuth`). 1단계는 임시 통과, 2단계에서 Firebase Auth로 교체
-- `src/lib/image.ts` — 사진 리사이즈. 현재 1600px/JPEG 0.8 → 3단계에서 1000px·용량 상한으로 조정 (Storage 없이 data URL로 Firestore에 저장)
+- `src/lib/firebase.ts` — Firebase 초기화(.env.local). `VITE_USE_EMULATORS=true`면 로컬 에뮬레이터 연결
+- `src/lib/boardStore.ts` — Firestore 저장소 API(`BoardStore` + `openSession/heartbeat/closeSession/findByCode`, 훅 `useBoards/useBoard/useRoom/usePostits/usePostitCount/useNow`)
+- `src/lib/auth.tsx` — 강사 Google 로그인+admins 확인(`useAuth`), 참여자 익명 로그인(`useGuestAuth`, `ensureGuestUser`). 에뮬레이터 모드에서만 `window.__emulatorGoogleUser`로 팝업 없이 테스트 로그인 가능
+- `src/lib/image.ts` — 사진 → 1000px JPEG data URL (700,000자 넘으면 품질·크기 단계적 축소). 상한은 `firestore.rules`와 같은 값
+- `firestore.rules` — 보안 규칙 (세션 코드·하트비트 90초 검증, 입력 길이·형식 검증). `tests/firestore.rules.test.mjs`로 검증
 - `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분
 - `src/pages/` — GuestPage(`/`, `/b/:code`), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`)
 - `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠
@@ -62,3 +66,5 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - `npm run dev` — 개발 서버 (http://localhost:5173)
 - `npm run build` — 타입체크 + 빌드 (커밋 전 필수)
 - `npm run lint` — oxlint
+- `npm run test:rules` — 보안 규칙 테스트 (Firebase CLI + Java 필요, 에뮬레이터 자동 실행)
+- `npm run emulators` — 로컬 에뮬레이터 (docs/firebase-setup.md 10번)
