@@ -26,8 +26,22 @@
 - Cloud Functions 사용 안 함 (무료 Spark 요금제 기준)
 
 ## 진행 단계 (design_handoff_postit_board/README.md "권장 작업 순서")
-1. 화면 이식 (Firebase 없이, 메모리/localStorage store)
+1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료
 2. Firebase 연결 (Auth, Firestore onSnapshot)
 3. 사진 업로드(Storage) · 실제 QR
 4. 보안 규칙 · 보드 삭제 시 하위 데이터 정리
 5. 배포 설정 (Firebase Hosting)
+
+## 코드 구조
+- `src/lib/boardStore.ts` — 저장소 API(`BoardStore` + `useBoards/useBoard/useBoardByCode/usePostits/usePostitCount`). 모두 비동기·구독형이라 Firestore로 구현만 교체하면 됨
+- `src/lib/auth.tsx` — 강사 인증(`useAuth`). 1단계는 임시 통과, 2단계에서 Firebase Auth로 교체
+- `src/lib/image.ts` — 사진 리사이즈(1600px, JPEG 0.8). 1단계는 data URL로 저장, 3단계에서 Storage 업로드로 교체
+- `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분
+- `src/pages/` — GuestPage(`/`, `/b/:code`), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`)
+- `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠
+- `src/dev/seed.ts` — 개발용 샘플 보드(프로토타입 SEED_POSTITS). `npm run dev`의 보드 목록 하단 버튼으로만 노출
+
+## 명령
+- `npm run dev` — 개발 서버 (http://localhost:5173)
+- `npm run build` — 타입체크 + 빌드 (커밋 전 필수)
+- `npm run lint` — oxlint
