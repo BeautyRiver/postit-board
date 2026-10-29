@@ -2,7 +2,8 @@
 
 교육·연수용 실시간 포스트잇 피드백 보드 웹앱.
 디자인 레퍼런스는 `design_handoff_postit_board/` (README.md + prototype/)에 있다.
-목표 스택: Vite + React 18 + TypeScript + React Router + Firebase(Hosting, Firestore, Storage, Auth).
+목표 스택: Vite + React 19 + TypeScript + React Router + Firebase(Hosting, Firestore, Auth). **Storage는 사용하지 않음**(아래 결정 사항).
+Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 
 ## 작업 규칙
 - 대화와 커밋 메시지는 한국어
@@ -24,6 +25,9 @@
 - **강사 답변 기능 제거**: `answered`, `answer` 필드 없음
 - 의견 수: 보드 문서에 `postitCount`를 두지 않고, 보드 목록·삭제 확인 시 Firestore count 집계 쿼리(`getCountFromServer`)로 조회. 벽 화면은 onSnapshot으로 실시간
 - Cloud Functions 사용 안 함 (무료 Spark 요금제 기준)
+- **카드 등록 없는 Spark 요금제 유지 → Cloud Storage 미사용** (2024.10 이후 Storage는 Blaze 필수)
+  - 사진은 클라이언트에서 긴 변 1000px JPEG로 줄여 data URL로 포스트잇 문서 `photoUrl`에 저장 (Firestore 문서 1MiB 제한 → 인코딩 후 약 700KB 이하가 되도록 품질 조절)
+  - Firestore 위치 `asia-northeast3`(서울)
 - **입장 코드 = 4자리 숫자 세션 코드** (보드 고정 코드 없음)
   - QR은 사이트 첫 화면(`/`)으로만 연결 → 참여자가 벽에 표시된 4자리 코드를 입력해야 입장 (`/b/:code`)
   - 강사가 보드 목록에서 벽을 열 때마다 새 코드 발급(직전 코드·열려 있는 다른 방 코드와 겹치지 않게). 벽 새로고침은 코드 유지
@@ -36,14 +40,14 @@
 ## 진행 단계 (design_handoff_postit_board/README.md "권장 작업 순서")
 1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료
 2. Firebase 연결 (Auth, Firestore onSnapshot)
-3. 사진 업로드(Storage) · 실제 QR
+3. 사진 첨부 (Firestore 저장, 크기 제한) — 실제 QR은 1단계에서 완료
 4. 보안 규칙 · 보드 삭제 시 하위 데이터 정리
 5. 배포 설정 (Firebase Hosting)
 
 ## 코드 구조
 - `src/lib/boardStore.ts` — 저장소 API(`BoardStore`(+ `openSession/closeSession/findByCode`) + `useBoards/useBoard/useBoardByCode/usePostits/usePostitCount/useNow`). 모두 비동기·구독형이라 Firestore로 구현만 교체하면 됨
 - `src/lib/auth.tsx` — 강사 인증(`useAuth`). 1단계는 임시 통과, 2단계에서 Firebase Auth로 교체
-- `src/lib/image.ts` — 사진 리사이즈(1600px, JPEG 0.8). 1단계는 data URL로 저장, 3단계에서 Storage 업로드로 교체
+- `src/lib/image.ts` — 사진 리사이즈. 현재 1600px/JPEG 0.8 → 3단계에서 1000px·용량 상한으로 조정 (Storage 없이 data URL로 Firestore에 저장)
 - `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분
 - `src/pages/` — GuestPage(`/`, `/b/:code`), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`)
 - `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠
