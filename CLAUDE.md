@@ -42,7 +42,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 2. Firebase 연결 (Auth, Firestore onSnapshot)
 3. 사진 첨부 (Firestore 저장, 크기 제한) — 실제 QR은 1단계에서 완료
 4. 보안 규칙 · 보드 삭제 시 하위 데이터 정리
-5. 배포 설정 (Firebase Hosting)
+5. ✅ 배포 설정 (Firebase Hosting + GitHub Actions 자동 배포) — 완료
 
 ## 코드 구조
 - `src/lib/boardStore.ts` — 저장소 API(`BoardStore`(+ `openSession/closeSession/findByCode`) + `useBoards/useBoard/useBoardByCode/usePostits/usePostitCount/useNow`). 모두 비동기·구독형이라 Firestore로 구현만 교체하면 됨
@@ -52,6 +52,11 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - `src/pages/` — GuestPage(`/`, `/b/:code`), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`)
 - `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠
 - `src/dev/seed.ts` — 개발용 샘플 보드(프로토타입 SEED_POSTITS). `npm run dev`의 보드 목록 하단 버튼으로만 노출
+
+## 배포
+- Firebase 프로젝트 ID: `postit-board-74a67` → https://postit-board-74a67.web.app
+- `main` 푸시 시 GitHub Actions(`.github/workflows/firebase-hosting-merge.yml`)가 빌드·배포. 빌드용 설정값은 Secret `ENV_LOCAL`(= `.env.local` 전체 내용)
+- 배포 실패 여부는 푸시 후 Actions 실행 결과로 확인할 것
 
 ## 명령
 - `npm run dev` — 개발 서버 (http://localhost:5173)

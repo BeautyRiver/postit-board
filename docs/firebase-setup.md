@@ -136,3 +136,30 @@ firebase login
 | 로그인 | 무료 | 충분 |
 
 한도를 넘으면 **요금이 청구되지 않고 그날 사용만 막힙니다** (자정(태평양 시간)에 초기화).
+
+---
+
+## 8. 자동 배포 (GitHub Actions) — 설정 완료
+
+- `main`에 푸시하면 GitHub Actions가 빌드해서 `https://postit-board-74a67.web.app`에 자동 배포합니다
+  (설정 파일: `.github/workflows/firebase-hosting-merge.yml`, `firebase.json`, `.firebaserc`)
+- 진행 상황: GitHub 저장소 → **Actions** 탭 (초록 체크 = 배포 성공, 빨간 X = 실패)
+- 수동 재배포: Actions 탭 → "Deploy to Firebase Hosting on merge" → **Run workflow**
+- 빌드에 쓰는 Firebase 설정값은 GitHub Secret **`ENV_LOCAL`**(= `.env.local` 내용 전체)에서 가져옵니다.
+  `.env.local`을 바꾸면 이 Secret도 같은 내용으로 **Update** 해야 배포본에 반영됩니다.
+
+## 9. 다른 PC에서 작업 시작하기
+
+`firebase init`은 **다시 할 필요 없습니다** (설정 파일이 저장소에 들어 있음).
+
+```bash
+git clone https://github.com/BeautyRiver/postit-board.git
+cd postit-board
+npm install
+```
+
+1. `.env.local` 파일을 만들어 설정값 넣기 (5번 참고 — 기존 PC의 파일 내용을 그대로 복사)
+2. `npm run dev` 로 실행
+
+Firebase CLI(`firebase-tools`)는 그 PC에서 `firebase` 명령(보안 규칙 배포, 에뮬레이터 등)을 직접 쓸 때만 설치·로그인하면 됩니다.
+사이트 배포는 GitHub Actions가 하므로 CLI 없이 푸시만 하면 됩니다.
