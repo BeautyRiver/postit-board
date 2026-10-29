@@ -19,8 +19,14 @@ export const POSTIT_COLORS: { id: PostitColor; value: string; label: string }[] 
   { id: 'white',  value: '#fefefe', label: '흰색' },
 ];
 
-// 보드 코드 문자셋 (혼동 문자 0/O, 1/I 제외)
-export const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// 입장 코드: 4자리 숫자. 강사 벽이 열려 있는 동안만 유효
+export const CODE_LENGTH = 4;
+export const HEARTBEAT_MS = 30_000;     // 벽 화면이 살아 있음을 알리는 주기
+export const SESSION_TTL_MS = 90_000;   // 이 시간 동안 하트비트가 없으면 방이 닫힌 것으로 처리 (탭 닫기·절전 대비)
+
+export function isSessionActive(session: { lastSeen: number } | null | undefined, now = Date.now()): boolean {
+  return !!session && now - session.lastSeen < SESSION_TTL_MS;
+}
 
 export const LIMITS = { title: 40, subtitle: 40, instructor: 20, body: 200 } as const;
 

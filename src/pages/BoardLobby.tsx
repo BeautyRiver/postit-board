@@ -7,12 +7,13 @@ import { IconEdit, IconTrash } from '../components/Icons';
 import { useTakeoff } from '../components/TakeoffProvider';
 import { seedDemoBoard } from '../dev/seed';
 import { useAuth } from '../lib/auth';
-import { BoardStore, useBoards, usePostitCount } from '../lib/boardStore';
-import { fmtDate } from '../lib/constants';
+import { BoardStore, useBoards, useNow, usePostitCount } from '../lib/boardStore';
+import { fmtDate, isSessionActive } from '../lib/constants';
 import type { Board } from '../lib/types';
 
-function BoardRow({ b, onOpen, onEdit, onDelete }: {
+function BoardRow({ b, now, onOpen, onEdit, onDelete }: {
   b: Board;
+  now: number;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -25,7 +26,7 @@ function BoardRow({ b, onOpen, onEdit, onDelete }: {
         <div className="board-row-meta">{b.subtitle ? b.subtitle + ' · ' : ''}강사 {b.instructor}</div>
       </div>
       <div className="board-row-stats">
-        <code className="board-code">{b.code}</code>
+        {isSessionActive(b.session, now) && <code className="board-code" title="진행 중 · 입장 코드">{b.session!.code}</code>}
         <span>의견 {count ?? '–'}</span>
         <span>{fmtDate(b.createdAt)}</span>
       </div>
@@ -40,6 +41,7 @@ function BoardRow({ b, onOpen, onEdit, onDelete }: {
 // 강사 — 보드 선택 / 생성 / 수정 / 삭제
 export function BoardLobby() {
   const boards = useBoards();
+  const now = useNow(10_000);
   const takeoff = useTakeoff();
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -47,6 +49,16 @@ export function BoardLobby() {
   const [editing, setEditing] = useState<Board | null>(null);
   const [deleting, setDeleting] = useState<Board | null>(null);
   const sorted = [...(boards || [])].sort((a, b) => b.createdAt - a.createdAt);
+
+  // 보드 목록에서 열 때마다 새 입장 코드 발급 → 이륙 연출 → 벽
+  async function open(b: Board) {
+    try {
+      const code = await BoardStore.openSession(b.id, { fresh: true });
+      takeoff(b, code);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '보드를 열지 못했어요');
+    }
+  }
 
   async function logout() {
     await signOut();
@@ -70,8 +82,8 @@ export function BoardLobby() {
         {boards === undefined ? null : sorted.length > 0 ? (
           <ul className="board-list">
             {sorted.map(b => (
-              <BoardRow key={b.id} b={b}
-                onOpen={() => takeoff(b)}
+              <BoardRow key={b.id} b={b} now={now}
+                onOpen={() => open(b)}
                 onEdit={() => setEditing(b)}
                 onDelete={() => setDeleting(b)} />
             ))}
@@ -93,7 +105,7 @@ export function BoardLobby() {
 
       {creating && (
         <BoardForm onClose={() => setCreating(false)}
-          onSave={async v => { const b = await BoardStore.create(v); setCreating(false); takeoff(b); }} />
+          onSave={async v => { const b = await BoardStore.create(v); setCreating(false); await open(b); }} />
       )}
       {editing && (
         <BoardForm initial={editing} onClose={() => setEditing(null)}

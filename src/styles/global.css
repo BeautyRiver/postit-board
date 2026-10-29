@@ -1107,3 +1107,7 @@ html, body { height: 100dvh; }
 @media (prefers-reduced-motion: reduce) {
   .postit.entering, .postit.entering.swaying, .postit.entering::before { animation: none; }
 }
+
+/* QR 카드: 사이트 주소 대신 4자리 입장 코드를 크게 (프로젝터 뒤쪽 자리에서도 보이도록) */
+.qr-card-code-label { font-size: 10px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.05em; margin-top: 2px; }
+.qr-card-code { font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 600; letter-spacing: 0.12em; color: var(--accent); line-height: 1.2; }

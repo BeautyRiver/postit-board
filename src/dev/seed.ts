@@ -45,6 +45,9 @@ export async function seedDemoBoard() {
     subtitle: '연수교육원 · 12기 수료식',
     instructor: '박지훈 사무장',
   });
-  for (const item of SEED_POSTITS) await BoardStore.addPostit(board.id, item);
+  // 포스트잇은 열린 방에만 붙으므로 잠깐 열었다가 닫는다
+  const code = await BoardStore.openSession(board.id, { fresh: true });
+  for (const item of SEED_POSTITS) await BoardStore.addPostit(board.id, code, item);
+  await BoardStore.closeSession(board.id);
   return board;
 }

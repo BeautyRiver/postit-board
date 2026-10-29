@@ -8,7 +8,7 @@ import { Postit } from '../components/Postit';
 import { QRCard } from '../components/QRCard';
 import { useAuth } from '../lib/auth';
 import { BoardStore, useBoard, usePostits } from '../lib/boardStore';
-import { CATEGORIES } from '../lib/constants';
+import { CATEGORIES, HEARTBEAT_MS, isSessionActive } from '../lib/constants';
 import { generateLayout } from '../lib/layout';
 import type { Postit as PostitData } from '../lib/types';
 
@@ -65,6 +65,16 @@ export function WallPage() {
     if (board === null) navigate('/host', { replace: true });
   }, [board, navigate]);
 
+  // 벽이 열려 있는 동안 입장 세션 유지 (하트비트). 새로고침이면 기존 코드 그대로 이어감
+  const boardExists = !!board;
+  useEffect(() => {
+    if (!boardId || !boardExists) return;
+    const keepAlive = () => { BoardStore.openSession(boardId, { fresh: false }).catch(() => {}); };
+    keepAlive();
+    const t = setInterval(keepAlive, HEARTBEAT_MS);
+    return () => clearInterval(t);
+  }, [boardId, boardExists]);
+
   const all = useMemo(() => postits || [], [postits]);
   const filtered = useMemo(() => filter === 'all' ? all : all.filter(p => p.category === filter), [all, filter]);
   const counts = CATEGORIES.reduce<Record<string, number>>((acc, c) => {
@@ -87,10 +97,19 @@ export function WallPage() {
 
   if (!board) return null;
 
+  // 벽을 떠나면 방을 닫아 코드를 즉시 무효화 (탭을 그냥 닫으면 SESSION_TTL_MS 후 자동으로 닫힘)
+  async function leave() {
+    await BoardStore.closeSession(board!.id).catch(() => {});
+    navigate('/host');
+  }
+
   async function logout() {
+    await BoardStore.closeSession(board!.id).catch(() => {});
     await signOut();
     navigate('/');
   }
+
+  const code = isSessionActive(board.session) ? board.session!.code : null;
 
   return (
     <div className="sky-bg" style={{ position: 'absolute', inset: 0 }}>
@@ -109,12 +128,12 @@ export function WallPage() {
         <div className="top-stats">
           <div className="stat-chip">
             <span className="stat-dot"></span>
-            참여 코드 <strong style={{ marginLeft: 4, letterSpacing: '0.08em' }}>{board.code}</strong>
+            참여 코드 <strong style={{ marginLeft: 4, letterSpacing: '0.08em' }}>{code ?? '····'}</strong>
           </div>
           <div className="stat-chip">
             ✎ <strong>{all.length}개</strong>의 의견
           </div>
-          <button className="stat-chip logout-btn" onClick={() => navigate('/host')} title="보드 목록으로">
+          <button className="stat-chip logout-btn" onClick={leave} title="보드 목록으로">
             <IconGrid />
             보드 목록
           </button>
@@ -144,7 +163,7 @@ export function WallPage() {
         <div className="wall-empty">
           <div className="wall-empty-note">
             <div className="wall-empty-title">아직 붙은 의견이 없어요</div>
-            <div className="wall-empty-sub">오른쪽 QR을 스캔해 첫 포스트잇을 남겨주세요</div>
+            <div className="wall-empty-sub">오른쪽 QR을 스캔하고 입장 코드를 입력해 첫 포스트잇을 남겨주세요</div>
           </div>
         </div>
       )}
@@ -168,7 +187,7 @@ export function WallPage() {
         ))}
       </div>
 
-      <QRCard code={board.code} />
+      <QRCard code={code} />
 
       {selected && (
         <FocusView selected={selected} onClose={() => setSelected(null)} />

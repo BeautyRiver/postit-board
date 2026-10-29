@@ -3,7 +3,8 @@ import { usePostitCount } from '../lib/boardStore';
 import type { Board } from '../lib/types';
 import { Modal } from './Modal';
 
-// 보드 삭제 확인 — 보드 코드를 정확히 입력해야 삭제 가능
+// 보드 삭제 확인 — '삭제'를 정확히 입력해야 삭제 가능 (보드 코드는 방을 열 때마다 바뀌므로 확인 문구로 대체)
+const CONFIRM_WORD = '삭제';
 export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
   board: Board;
   onConfirm: () => Promise<void> | void;
@@ -12,7 +13,7 @@ export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const count = usePostitCount(board.id);
-  const ok = typed.trim().toUpperCase() === board.code && !busy;
+  const ok = typed.trim() === CONFIRM_WORD && !busy;
 
   async function confirm() {
     if (!ok) return;
@@ -35,8 +36,8 @@ export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
           DB에서 <strong>영구적으로 삭제</strong>됩니다. 이 작업은 되돌릴 수 없습니다.
         </p>
         <label className="field">
-          <span>확인을 위해 보드 코드 <code className="board-code">{board.code}</code>를 입력하세요</span>
-          <input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={board.code} maxLength={6}
+          <span>확인을 위해 <code className="board-code">{CONFIRM_WORD}</code>를 입력하세요</span>
+          <input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={CONFIRM_WORD} maxLength={4}
             onKeyDown={e => { if (e.key === 'Enter') confirm(); }} />
         </label>
         <div className="modal-actions">

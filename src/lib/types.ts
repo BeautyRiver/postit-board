@@ -1,9 +1,16 @@
 export type CategoryId = 'question' | 'praise' | 'improve' | 'etc';
 export type PostitColor = 'yellow' | 'pink' | 'green' | 'blue' | 'orange' | 'purple' | 'mint' | 'white';
 
+// 강사가 벽을 열어 둔 동안만 유효한 입장 세션. 벽을 새로 열 때마다 새 4자리 코드 발급
+export interface BoardSession {
+  code: string;          // 4자리 숫자
+  openedAt: number;      // ms
+  lastSeen: number;      // ms — 벽 화면이 주기적으로 갱신(하트비트). 오래되면 닫힌 것으로 본다
+}
+
 export interface Board {
   id: string;
-  code: string;          // 6자리, CODE_CHARS 문자셋
+  session: BoardSession | null;  // null = 닫힘
   title: string;         // ≤40
   subtitle: string;      // ≤40, 선택
   instructor: string;    // ≤20

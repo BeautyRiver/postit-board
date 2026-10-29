@@ -1,11 +1,30 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { BoardStore, useBoardByCode } from '../lib/boardStore';
-import { CATEGORIES, LIMITS, POSTIT_COLORS, colorValue } from '../lib/constants';
+import { CATEGORIES, CODE_LENGTH, LIMITS, POSTIT_COLORS, colorValue } from '../lib/constants';
 import { blobToDataUrl, resizeImage } from '../lib/image';
 import type { Board, CategoryId, PostitColor } from '../lib/types';
 
 const NAME_KEY = 'postit.guestName';
+const DRAFT_KEY = 'postit.guestDraft';
+
+type JoinNotice = 'inactive' | 'closed' | null;
+const NOTICE_TEXT: Record<Exclude<JoinNotice, null>, string> = {
+  inactive: '활성화된 방이 아니에요. 강사님 화면의 4자리 코드를 확인해 주세요.',
+  closed: '강사님이 방을 닫았어요. 새 코드가 나오면 다시 입력해 주세요.',
+};
+
+// 작성 중인 글 임시 보관 — 방이 닫혀 코드 입력 화면으로 돌아가도 다시 들어오면 이어 쓸 수 있게
+interface Draft { body: string; color: PostitColor; category: CategoryId; anonymous: boolean }
+function readDraft(): Partial<Draft> {
+  try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; }
+}
+function saveDraft(d: Draft | null) {
+  try {
+    if (d) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    else sessionStorage.removeItem(DRAFT_KEY);
+  } catch { /* 무시 */ }
+}
 
 function readSavedName() {
   try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; }
@@ -14,41 +33,47 @@ function saveName(name: string) {
   try { localStorage.setItem(NAME_KEY, name); } catch { /* 무시 */ }
 }
 
-// 참여자 — 코드 입력
-function GuestJoin({ code, onJoin }: { code?: string; onJoin: (code: string) => Promise<boolean> }) {
+// 참여자 — 코드 입력 (4자리 숫자, 강사 벽이 열려 있는 방만 입장 가능)
+function GuestJoin({ code, notice, onJoin }: {
+  code?: string;
+  notice: JoinNotice;
+  onJoin: (code: string) => Promise<boolean>;
+}) {
   const [value, setValue] = useState(code || '');
-  const [error, setError] = useState(!!code);
+  const [error, setError] = useState<JoinNotice>(notice);
   const [busy, setBusy] = useState(false);
+  const complete = value.length === CODE_LENGTH;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (value.length !== 6 || busy) return;
+    if (!complete || busy) return;
     setBusy(true);
     const ok = await onJoin(value);
     setBusy(false);
-    if (!ok) setError(true);
+    if (!ok) setError('inactive');
   }
 
   return (
     <form className="guest-form" onSubmit={submit}>
       <div className="guest-header">
-        <h1>보드 코드를 입력하세요</h1>
-        <p>강사님 화면에 보이는 6자리 코드예요</p>
+        <h1>입장 코드를 입력하세요</h1>
+        <p>강사님 화면에 보이는 4자리 숫자예요</p>
       </div>
       <div className="guest-card">
         <input
           className="name-input join-code-input"
           value={value}
-          onChange={e => { setValue(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setError(false); }}
-          placeholder="ABC123"
-          maxLength={6}
+          onChange={e => { setValue(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH)); setError(null); }}
+          placeholder="0000"
+          maxLength={CODE_LENGTH}
+          inputMode="numeric"
+          pattern="[0-9]*"
           autoFocus
-          autoCapitalize="characters"
           autoComplete="off"
         />
-        {error && <div className="join-error">코드에 해당하는 보드를 찾을 수 없어요</div>}
+        {error && <div className="join-error">{NOTICE_TEXT[error]}</div>}
       </div>
-      <button type="submit" className="submit-btn" disabled={value.length !== 6 || busy} style={{ opacity: value.length === 6 ? 1 : 0.5 }}>
+      <button type="submit" className="submit-btn" disabled={!complete || busy} style={{ opacity: complete ? 1 : 0.5 }}>
         입장하기
       </button>
     </form>
@@ -56,11 +81,12 @@ function GuestJoin({ code, onJoin }: { code?: string; onJoin: (code: string) => 
 }
 
 // 참여자 — 의견 작성
-function GuestForm({ board }: { board: Board }) {
-  const [body, setBody] = useState('');
-  const [color, setColor] = useState<PostitColor>('yellow');
-  const [category, setCategory] = useState<CategoryId>('question');
-  const [anonymous, setAnonymous] = useState(false);
+function GuestForm({ board, code }: { board: Board; code: string }) {
+  const [draft] = useState(readDraft);
+  const [body, setBody] = useState(draft.body ?? '');
+  const [color, setColor] = useState<PostitColor>(draft.color ?? 'yellow');
+  const [category, setCategory] = useState<CategoryId>(draft.category ?? 'question');
+  const [anonymous, setAnonymous] = useState(draft.anonymous ?? false);
   const [name, setName] = useState(readSavedName);
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -68,7 +94,11 @@ function GuestForm({ board }: { board: Board }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const sendingRef = useRef(false);  // 연타 시 같은 의견이 두 번 붙지 않도록 (state는 다음 렌더까지 반영이 늦음)
+  const sendingRef = useRef(false);
+
+  useEffect(() => {
+    saveDraft(body ? { body, color, category, anonymous } : null);
+  }, [body, color, category, anonymous]);  // 연타 시 같은 의견이 두 번 붙지 않도록 (state는 다음 렌더까지 반영이 늦음)
 
   async function handlePhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -94,7 +124,7 @@ function GuestForm({ board }: { board: Board }) {
     setSending(true);
     setError(null);
     try {
-      await BoardStore.addPostit(board.id, {
+      await BoardStore.addPostit(board.id, code, {
         body: body.trim().slice(0, LIMITS.body),
         author: isAnon ? '익명' : author,
         anonymous: isAnon,
@@ -104,6 +134,7 @@ function GuestForm({ board }: { board: Board }) {
         photoCaption: null,
       });
       if (author) saveName(author);
+      saveDraft(null);
       setSent(true);
       setTimeout(() => {
         setSent(false);
@@ -232,14 +263,18 @@ function GuestForm({ board }: { board: Board }) {
 }
 
 // 참여자 화면 (/ , /b/:code)
-// 보드가 없거나(삭제 포함) 코드가 틀리면 코드 입력 화면을 보여준다
+// QR → 첫 화면에서 4자리 코드 입력 → 열린 방이면 /b/:code 의견 작성.
+// 코드가 틀렸거나 방이 닫혀 있으면(강사가 나감·탭 닫음) 입장 불가, 작성 중 방이 닫히면 코드 입력 화면으로
 export function GuestPage() {
   const { code } = useParams();
   const board = useBoardByCode(code);
   const navigate = useNavigate();
+  // 이 코드로 입장했던 적이 있는지 (→ 지금 null이면 '방이 닫힘' 안내)
+  const [joinedCode, setJoinedCode] = useState<string | null>(null);
+  if (board && code && joinedCode !== code) setJoinedCode(code);
 
   async function onJoin(input: string) {
-    const c = input.trim().toUpperCase();
+    const c = input.trim();
     const found = await BoardStore.findByCode(c);
     if (!found) return false;
     navigate(`/b/${c}`);
@@ -247,8 +282,12 @@ export function GuestPage() {
   }
 
   let content = null;
-  if (board) content = <GuestForm key={board.id} board={board} />;
-  else if (board === null) content = <GuestJoin key={code || ''} code={code?.toUpperCase()} onJoin={onJoin} />;
+  if (board && code) {
+    content = <GuestForm key={board.id + code} board={board} code={code} />;
+  } else if (board === null) {
+    const notice: JoinNotice = code ? (joinedCode === code ? 'closed' : 'inactive') : null;
+    content = <GuestJoin key={(code || '') + notice} code={notice === 'closed' ? '' : code} notice={notice} onJoin={onJoin} />;
+  }
 
   return (
     <div className="guest-shell">
