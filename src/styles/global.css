@@ -1075,3 +1075,35 @@ html, body { height: 100dvh; }
 
 /* 개발용 샘플 보드 버튼 (npm run dev 에서만 표시) */
 .dev-seed { font-size: 12px; opacity: .6; }
+
+/* 포스트잇 부착 애니메이션 (사용자 요청으로 추가)
+   프로토타입은 .postit.swaying 이 .postit.entering 의 animation을 덮어써 등장 연출이 재생되지 않았다.
+   → 살짝 들린 채 나타나 → 벽에 눌러 붙고 → 자리 잡은 뒤 흔들림 시작. 테이프는 붙은 직후 붙는다.
+   --enter-delay: 동시에 여러 장이 붙을 때 순차 연출용 지연 / --sway-delay: 흔들림 위상 */
+@keyframes stick-on {
+  0%   { transform: translateY(-14px) scale(1.12) rotate(-3deg); opacity: 0;
+         box-shadow: 0 36px 48px -18px rgba(30,40,70,0.32), 0 14px 20px rgba(30,40,70,0.1); }
+  45%  { opacity: 1; }
+  60%  { transform: translateY(2px) scale(0.97) rotate(0.5deg);
+         box-shadow: 0 6px 10px -6px rgba(30,40,70,0.35), 0 1px 2px rgba(30,40,70,0.2); }
+  80%  { transform: translateY(-1px) scale(1.01) rotate(0deg); }
+  100% { transform: none; opacity: 1; box-shadow: var(--shadow-postit); }
+}
+@keyframes tape-on {
+  0%, 55% { opacity: 0; transform: translateX(-50%) rotate(-2deg) scaleX(0.4); }
+  100%    { opacity: 1; transform: translateX(-50%) rotate(-2deg) scaleX(1); }
+}
+.postit.entering {
+  animation: stick-on 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) var(--enter-delay, 0s) backwards;
+}
+.postit.entering.swaying {
+  animation:
+    stick-on 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) var(--enter-delay, 0s) backwards,
+    sway 6s ease-in-out calc(var(--enter-delay, 0s) + 0.7s + var(--sway-delay, 0s)) infinite;
+}
+.postit.entering::before {
+  animation: tape-on 0.7s ease-out var(--enter-delay, 0s) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .postit.entering, .postit.entering.swaying, .postit.entering::before { animation: none; }
+}

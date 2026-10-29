@@ -35,7 +35,16 @@ function write(db: Db) {
 }
 
 function makeId(prefix: string) {
-  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+// 여러 탭이 동시에 쓰면 읽기→수정→쓰기 사이에 서로 덮어쓸 수 있으므로 탭 간 잠금으로 순서대로 처리.
+// (Firestore 구현에서는 포스트잇이 각각 별도 문서라 이 문제가 없음)
+// navigator.locks는 https/localhost에서만 제공 — 없으면 그냥 실행 (localStorage 자체는 동기라 같은 탭 안에서는 안전)
+function withLock<T>(fn: () => T): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  if (!locks) return Promise.resolve().then(fn);
+  return locks.request(STORE_KEY, () => fn());
 }
 function makeCode(existing: Board[]) {
   let c: string;
@@ -48,28 +57,36 @@ export const BoardStore = {
   async list(): Promise<Board[]> {
     return read().boards;
   },
-  async create({ title, subtitle = '', instructor }: BoardInput): Promise<Board> {
-    const db = read();
-    const board: Board = { id: makeId('b'), code: makeCode(db.boards), title, subtitle, instructor, createdAt: Date.now() };
-    write({ boards: [board, ...db.boards], postits: { ...db.postits, [board.id]: [] } });
-    return board;
+  create({ title, subtitle = '', instructor }: BoardInput): Promise<Board> {
+    return withLock(() => {
+      const db = read();
+      const board: Board = { id: makeId('b'), code: makeCode(db.boards), title, subtitle, instructor, createdAt: Date.now() };
+      write({ boards: [board, ...db.boards], postits: { ...db.postits, [board.id]: [] } });
+      return board;
+    });
   },
-  async update(id: string, patch: Partial<BoardInput>): Promise<void> {
-    const db = read();
-    write({ ...db, boards: db.boards.map(b => b.id === id ? { ...b, ...patch } : b) });
+  update(id: string, patch: Partial<BoardInput>): Promise<void> {
+    return withLock(() => {
+      const db = read();
+      write({ ...db, boards: db.boards.map(b => b.id === id ? { ...b, ...patch } : b) });
+    });
   },
   // 보드와 그 보드의 포스트잇(사진 포함)을 모두 삭제
-  async remove(id: string): Promise<void> {
-    const db = read();
-    const postits = { ...db.postits };
-    delete postits[id];
-    write({ boards: db.boards.filter(b => b.id !== id), postits });
+  remove(id: string): Promise<void> {
+    return withLock(() => {
+      const db = read();
+      const postits = { ...db.postits };
+      delete postits[id];
+      write({ boards: db.boards.filter(b => b.id !== id), postits });
+    });
   },
-  async addPostit(boardId: string, item: PostitInput): Promise<void> {
-    const db = read();
-    if (!db.boards.some(b => b.id === boardId)) throw new Error('보드를 찾을 수 없어요');
-    const postit: Postit = { ...item, id: makeId('p'), createdAt: Date.now() };
-    write({ ...db, postits: { ...db.postits, [boardId]: [...(db.postits[boardId] || []), postit] } });
+  addPostit(boardId: string, item: PostitInput): Promise<void> {
+    return withLock(() => {
+      const db = read();
+      if (!db.boards.some(b => b.id === boardId)) throw new Error('보드를 찾을 수 없어요');
+      const postit: Postit = { ...item, id: makeId('p'), createdAt: Date.now() };
+      write({ ...db, postits: { ...db.postits, [boardId]: [...(db.postits[boardId] || []), postit] } });
+    });
   },
   async findByCode(code: string): Promise<Board | null> {
     return read().boards.find(b => b.code === code.trim().toUpperCase()) || null;

@@ -25,11 +25,34 @@ function useWindowSize() {
   return size;
 }
 
+// 포스트잇마다 부착 애니메이션 지연을 처음 보일 때 한 번만 정한다 (보드별로 기억).
+// 첫 로딩: 순서대로 0.04초 간격(최대 0.8초) / 이후 같은 순간에 도착한 묶음: 0.15초 간격으로 차례차례 붙음
+const enterDelayCache = new Map<string, Map<string, number>>();
+function enterDelaysFor(boardId: string, postits: PostitData[]) {
+  let delays = enterDelayCache.get(boardId);
+  const firstLoad = !delays;
+  if (!delays) {
+    delays = new Map();
+    enterDelayCache.set(boardId, delays);
+  }
+  let n = 0;
+  for (const p of postits) {
+    if (delays.has(p.id)) continue;
+    delays.set(p.id, firstLoad ? Math.min(n * 0.04, 0.8) : n * 0.15);
+    n++;
+  }
+  return delays;
+}
+
 // 강사 — 포스트잇 벽 (/host/:boardId)
 export function WallPage() {
   const { boardId } = useParams();
   const board = useBoard(boardId);
   const postits = usePostits(boardId);
+  const enterDelays = useMemo(
+    () => (boardId && postits ? enterDelaysFor(boardId, postits) : new Map<string, number>()),
+    [boardId, postits],
+  );
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const { w: winW, h: winH } = useWindowSize();
@@ -109,6 +132,7 @@ export function WallPage() {
               key={p.id}
               p={p}
               layout={p}
+              enterDelay={enterDelays.get(p.id) ?? 0}
               onClick={setSelected}
               swayEnabled={SWAY_ENABLED}
             />

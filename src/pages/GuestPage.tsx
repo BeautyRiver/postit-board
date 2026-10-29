@@ -68,6 +68,7 @@ function GuestForm({ board }: { board: Board }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const sendingRef = useRef(false);  // 연타 시 같은 의견이 두 번 붙지 않도록 (state는 다음 렌더까지 반영이 늦음)
 
   async function handlePhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -86,7 +87,8 @@ function GuestForm({ board }: { board: Board }) {
   }
 
   async function handleSubmit() {
-    if (!body.trim() || sending) return;
+    if (!body.trim() || sendingRef.current) return;
+    sendingRef.current = true;
     const author = name.trim();
     const isAnon = anonymous || !author;
     setSending(true);
@@ -111,6 +113,7 @@ function GuestForm({ board }: { board: Board }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : '보내지 못했어요. 다시 시도해 주세요.');
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
