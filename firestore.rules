@@ -41,11 +41,12 @@ service cloud.firestore {
     }
 
     function validBoard(d) {
-      return d.keys().hasOnly(['ownerUid', 'title', 'subtitle', 'instructor', 'session', 'createdAt'])
+      return d.keys().hasOnly(['ownerUid', 'title', 'subtitle', 'instructor', 'session', 'saved', 'createdAt'])
         && isText(d.title, 1, 40)
         && isText(d.subtitle, 0, 40)
         && isText(d.instructor, 1, 20)
         && validSession(d.session)
+        && (!('saved' in d) || d.saved is bool)
         && d.createdAt is timestamp;
     }
 

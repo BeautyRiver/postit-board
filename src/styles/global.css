@@ -1120,3 +1120,37 @@ html, body { height: 100dvh; }
 /* 앱 시작 오류 (Firebase 설정값 없음 등) */
 .config-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--paper); text-align: center; font-size: 14px; line-height: 1.7; color: var(--ink-soft); }
 .config-error strong { display: block; font-size: 18px; color: var(--ink); margin-bottom: 8px; }
+
+/* QR 카드 버튼화 (기본 버튼 스타일 제거) + 크게 보기 */
+button.qr-card { border: 0; font: inherit; color: inherit; cursor: zoom-in; display: block; }
+.qr-big-backdrop { cursor: zoom-out; }
+.qr-big {
+  background: #fff;
+  border-radius: 28px;
+  padding: clamp(24px, 4vh, 48px) clamp(24px, 4vw, 56px);
+  box-shadow: 0 50px 100px -20px rgba(0,0,0,0.6), 0 20px 40px rgba(0,0,0,0.3);
+  text-align: center;
+  cursor: default;
+  animation: focus-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 92vw;
+}
+.qr-big-title { font-size: clamp(16px, 2.2vw, 26px); font-weight: 700; color: var(--ink); margin-bottom: clamp(16px, 3vh, 32px); text-wrap: balance; }
+.qr-big-body { display: flex; align-items: center; justify-content: center; gap: clamp(24px, 5vw, 72px); flex-wrap: wrap; }
+.qr-big-img { width: min(58vh, 46vw); height: min(58vh, 46vw); display: block; }
+.qr-big-side { display: flex; flex-direction: column; align-items: center; }
+.qr-big-code-label { font-size: clamp(14px, 1.8vw, 22px); font-weight: 600; color: var(--ink-soft); letter-spacing: 0.05em; }
+.qr-big-code { font-family: 'JetBrains Mono', monospace; font-size: clamp(64px, 11vw, 160px); font-weight: 600; letter-spacing: 0.12em; color: var(--accent); line-height: 1.1; }
+.qr-big-url { margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: clamp(12px, 1.4vw, 18px); color: var(--ink-soft); }
+
+/* 벽 상단: 보드 저장 버튼 */
+.stat-chip.save-chip { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+.stat-chip.save-chip:hover { background: #234c74; color: #fff; }
+.stat-chip.save-chip.saved { background: rgba(255,255,255,0.85); color: #16a34a; cursor: default; }
+.stat-chip.save-chip:disabled { opacity: 1; }
+
+/* 보드 목록: 저장 안 한 임시 보드 표시 */
+.board-temp { font-size: 11px; font-weight: 600; color: var(--accent-warm); background: rgba(201,138,75,.12); padding: 3px 8px; border-radius: 6px; }
+
+/* 나가기 확인 모달: 버튼 3개를 세로로 (위에서부터 저장하고 나가기 · 저장 안 하고 나가기 · 취소) */
+.modal-actions.stack { flex-direction: column-reverse; align-items: stretch; }
+.modal-actions.stack button { padding: 12px 18px; }

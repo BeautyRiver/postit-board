@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { BoardForm } from '../components/BoardForm';
 import { Clouds } from '../components/Clouds';
 import { FocusView } from '../components/FocusView';
+import { Modal } from '../components/Modal';
 import { IconEdit, IconGrid, IconLogout } from '../components/Icons';
 import { Postit } from '../components/Postit';
 import { QRCard } from '../components/QRCard';
@@ -59,6 +60,18 @@ export function WallPage() {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState<PostitData | null>(null);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [leaveTarget, setLeaveTarget] = useState<'lobby' | 'logout' | null>(null);  // 저장 안 한 채 나가려 할 때 확인 창
+  const [leaving, setLeaving] = useState(false);
+
+  // 저장하지 않은 보드에서 탭을 닫거나 새로고침하려 하면 브라우저 경고 (문구는 브라우저 기본)
+  const unsaved = board ? !board.saved : false;
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsaved]);
 
   // 삭제됐거나 없는 보드 → 보드 선택으로
   useEffect(() => {
@@ -105,16 +118,42 @@ export function WallPage() {
 
   if (!board) return null;
 
-  // 벽을 떠나면 방을 닫아 코드를 즉시 무효화 (탭을 그냥 닫으면 SESSION_TTL_MS 후 자동으로 닫힘)
-  async function leave() {
-    await BoardStore.closeSession(board!.id).catch(() => {});
-    navigate('/host');
+  async function save() {
+    setSaving(true);
+    try {
+      await BoardStore.save(board!.id);
+    } catch {
+      alert('저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  async function logout() {
-    await BoardStore.closeSession(board!.id).catch(() => {});
-    await signOut();
-    navigate('/');
+  // 벽을 떠나면 방을 닫아 코드를 즉시 무효화 (탭을 그냥 닫으면 SESSION_TTL_MS 후 자동으로 닫힘)
+  // mode: keep = 그대로 나감(저장된 보드) / save = 저장하고 나감 / discard = 보드·포스트잇 삭제하고 나감
+  async function exit(target: 'lobby' | 'logout', mode: 'keep' | 'save' | 'discard') {
+    setLeaving(true);
+    try {
+      if (mode === 'save') await BoardStore.save(board!.id);
+      if (mode === 'discard') await BoardStore.remove(board!.id);
+      else await BoardStore.closeSession(board!.id).catch(() => {});
+    } catch {
+      alert('처리하지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+      setLeaving(false);
+      return;
+    }
+    if (target === 'logout') {
+      await signOut();
+      navigate('/');
+    } else {
+      navigate('/host');
+    }
+  }
+
+  // 저장한 보드는 바로 나가고, 저장 안 한 보드는 확인 창
+  function requestExit(target: 'lobby' | 'logout') {
+    if (board!.saved) exit(target, 'keep');
+    else setLeaveTarget(target);
   }
 
   const code = isSessionActive(board.session) ? board.session!.code : null;
@@ -141,11 +180,20 @@ export function WallPage() {
           <div className="stat-chip">
             ✎ <strong>{all.length}개</strong>의 의견
           </div>
-          <button className="stat-chip logout-btn" onClick={leave} title="보드 목록으로">
+          {board.saved ? (
+            <button className="stat-chip save-chip saved" disabled title="이 보드는 저장되어 있어요. 새 의견도 자동으로 남아요">
+              ✓ 저장됨
+            </button>
+          ) : (
+            <button className="stat-chip save-chip" onClick={save} disabled={saving} title="저장하지 않으면 나갈 때 보드와 의견이 삭제돼요">
+              {saving ? '저장 중…' : '💾 보드 저장'}
+            </button>
+          )}
+          <button className="stat-chip logout-btn" onClick={() => requestExit('lobby')} title="보드 목록으로">
             <IconGrid />
             보드 목록
           </button>
-          <button className="stat-chip logout-btn" onClick={logout} title="강사 로그아웃">
+          <button className="stat-chip logout-btn" onClick={() => requestExit('logout')} title="강사 로그아웃">
             <IconLogout />
             로그아웃
           </button>
@@ -199,6 +247,23 @@ export function WallPage() {
 
       {selected && (
         <FocusView selected={selected} onClose={() => setSelected(null)} />
+      )}
+      {leaveTarget && (
+        <Modal onClose={() => !leaving && setLeaveTarget(null)}>
+          <div className="modal-form">
+            <div className="danger-icon">!</div>
+            <h2 className="modal-title">보드를 저장하지 않았어요</h2>
+            <p className="danger-text">
+              저장하지 않고 나가면 <strong>{board.title}</strong> 보드와 포스트잇 <strong>{all.length}개</strong>가
+              <strong> 삭제</strong>됩니다. 나가시겠습니까?
+            </p>
+            <div className="modal-actions stack">
+              <button className="btn-ghost" onClick={() => setLeaveTarget(null)} disabled={leaving}>취소</button>
+              <button className="btn-danger" onClick={() => exit(leaveTarget, 'discard')} disabled={leaving}>저장 안 하고 나가기</button>
+              <button className="btn-primary" autoFocus onClick={() => exit(leaveTarget, 'save')} disabled={leaving}>저장하고 나가기</button>
+            </div>
+          </div>
+        </Modal>
       )}
       {editing && (
         <BoardForm initial={board} onClose={() => setEditing(false)}

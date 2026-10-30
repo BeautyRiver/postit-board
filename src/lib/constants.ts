@@ -24,6 +24,9 @@ export const CODE_LENGTH = 4;
 export const HEARTBEAT_MS = 30_000;     // 벽 화면이 살아 있음을 알리는 주기
 export const SESSION_TTL_MS = 90_000;   // 이 시간 동안 하트비트가 없으면 방이 닫힌 것으로 처리 (탭 닫기·절전 대비)
 
+// 저장하지 않은 채 남겨진 보드(탭을 그냥 닫은 경우 등)를 보드 목록에서 자동 삭제하기까지의 시간
+export const UNSAVED_BOARD_TTL_MS = 24 * 60 * 60 * 1000;
+
 export function isSessionActive(session: { lastSeen: number } | null | undefined, now = Date.now()): boolean {
   return !!session && now - session.lastSeen < SESSION_TTL_MS;
 }

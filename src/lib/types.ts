@@ -13,6 +13,7 @@ export interface Board {
   id: string;
   ownerUid: string;
   session: BoardSession | null;  // null = 닫힘
+  saved: boolean;        // 강사가 '저장'한 보드만 남는다. 저장 안 한 보드는 나갈 때 삭제(또는 24시간 뒤 자동 삭제)
   title: string;         // ≤40
   subtitle: string;      // ≤40, 선택
   instructor: string;    // ≤20

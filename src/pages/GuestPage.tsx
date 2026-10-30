@@ -74,8 +74,8 @@ function GuestJoin({ code, notice, onJoin }: {
         />
         {error && <div className="join-error">{NOTICE_TEXT[error]}</div>}
       </div>
-      <button type="submit" className="submit-btn" disabled={!complete || busy} style={{ opacity: complete ? 1 : 0.5 }}>
-        입장하기
+      <button type="submit" className="submit-btn" disabled={!complete || busy} style={{ opacity: complete && !busy ? 1 : 0.5 }}>
+        {busy ? '확인 중…' : '입장하기'}
       </button>
     </form>
   );
@@ -295,6 +295,9 @@ export function GuestPage() {
   } else if (room === null || (room && closedCode === code)) {
     const notice: JoinNotice = code ? (joinedCode === code ? 'closed' : 'inactive') : null;
     content = <GuestJoin key={(code || '') + notice} code={notice === 'closed' ? '' : code} notice={notice} onJoin={onJoin} />;
+  } else {
+    // 방 정보를 불러오는 중 (첫 접속은 서버 연결에 몇 초 걸릴 수 있음)
+    content = <div className="guest-form"><div className="guest-header"><h1>방에 들어가는 중…</h1><p>잠시만 기다려 주세요</p></div></div>;
   }
 
   return (

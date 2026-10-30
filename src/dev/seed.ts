@@ -50,5 +50,6 @@ export async function seedDemoBoard() {
   // 본문 200자 제한(보안 규칙)에 맞춰 자름 — 프로토타입 샘플 중 하나가 더 김
   for (const item of SEED_POSTITS) await BoardStore.addPostit(board.id, code, { ...item, body: item.body.slice(0, 200) });
   await BoardStore.closeSession(board.id);
+  await BoardStore.save(board.id);
   return board;
 }

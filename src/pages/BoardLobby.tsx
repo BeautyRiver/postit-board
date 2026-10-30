@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { BoardForm } from '../components/BoardForm';
 import { Clouds } from '../components/Clouds';
@@ -8,7 +8,7 @@ import { useTakeoff } from '../components/TakeoffProvider';
 import { seedDemoBoard } from '../dev/seed';
 import { useAuth } from '../lib/auth';
 import { BoardStore, useBoards, useNow, usePostitCount } from '../lib/boardStore';
-import { fmtDate, isSessionActive } from '../lib/constants';
+import { UNSAVED_BOARD_TTL_MS, fmtDate, isSessionActive } from '../lib/constants';
 import type { Board } from '../lib/types';
 
 function BoardRow({ b, now, onOpen, onEdit, onDelete }: {
@@ -26,6 +26,7 @@ function BoardRow({ b, now, onOpen, onEdit, onDelete }: {
         <div className="board-row-meta">{b.subtitle ? b.subtitle + ' · ' : ''}강사 {b.instructor}</div>
       </div>
       <div className="board-row-stats">
+        {!b.saved && <span className="board-temp" title="저장하지 않은 보드 — 열어서 저장하지 않으면 24시간 뒤 자동 삭제">임시</span>}
         {isSessionActive(b.session, now) && <code className="board-code" title="진행 중 · 입장 코드">{b.session!.code}</code>}
         <span>의견 {count ?? '–'}</span>
         <span>{fmtDate(b.createdAt)}</span>
@@ -49,6 +50,18 @@ export function BoardLobby() {
   const [editing, setEditing] = useState<Board | null>(null);
   const [deleting, setDeleting] = useState<Board | null>(null);
   const sorted = [...(boards || [])].sort((a, b) => b.createdAt - a.createdAt);
+
+  // 저장하지 않고 남겨진 보드(벽 탭을 그냥 닫은 경우 등) 정리: 방이 닫혀 있고 만든 지 24시간 지난 것만 삭제
+  // 그 전에는 '임시'로 표시해 실수로 닫았을 때 다시 열어 저장할 수 있게 둔다
+  const cleaned = useRef(false);
+  useEffect(() => {
+    if (!boards || cleaned.current) return;
+    cleaned.current = true;
+    const now = Date.now();
+    boards
+      .filter(b => !b.saved && !isSessionActive(b.session, now) && now - b.createdAt > UNSAVED_BOARD_TTL_MS)
+      .forEach(b => { BoardStore.remove(b.id).catch(() => {}); });
+  }, [boards]);
 
   // 보드 목록에서 열 때마다 새 입장 코드 발급 → 이륙 연출 → 벽
   async function open(b: Board) {

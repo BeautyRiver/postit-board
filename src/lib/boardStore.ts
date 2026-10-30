@@ -42,6 +42,7 @@ function toBoard(snap: DocumentSnapshot): Board {
     id: snap.id,
     ownerUid: d.ownerUid,
     session: toSession(d.session),
+    saved: d.saved !== false,   // 저장 기능 이전에 만든 보드(필드 없음)는 저장된 것으로 본다
     title: d.title,
     subtitle: d.subtitle || '',
     instructor: d.instructor,
@@ -94,8 +95,13 @@ export const BoardStore = {
 
   async create({ title, subtitle = '', instructor }: BoardInput): Promise<Board> {
     const ownerUid = currentUid();
-    const ref = await addDoc(boardsCol, { ownerUid, title, subtitle, instructor, session: null, createdAt: serverTimestamp() });
-    return { id: ref.id, ownerUid, title, subtitle, instructor, session: null, createdAt: Date.now() };
+    const ref = await addDoc(boardsCol, { ownerUid, title, subtitle, instructor, session: null, saved: false, createdAt: serverTimestamp() });
+    return { id: ref.id, ownerUid, title, subtitle, instructor, session: null, saved: false, createdAt: Date.now() };
+  },
+
+  // 보드 저장 — 저장한 보드만 보드 목록에 계속 남는다
+  async save(id: string): Promise<void> {
+    await updateDoc(boardRef(id), { saved: true });
   },
 
   // 보드 정보 수정. 방이 열려 있으면 참여자 화면 제목도 함께 바꾼다

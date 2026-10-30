@@ -120,6 +120,11 @@ describe('강사', () => {
     await assertSucceeds(addDoc(collection(db, 'boards'), {
       ownerUid: HOST, title: '새 보드', subtitle: '', instructor: '누나', session: null, createdAt: serverTimestamp(),
     }));
+    await assertSucceeds(addDoc(collection(db, 'boards'), {
+      ownerUid: HOST, title: '임시 보드', subtitle: '', instructor: '누나', session: null, saved: false, createdAt: serverTimestamp(),
+    }));
+    await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { saved: true }));
+    await assertFails(updateDoc(doc(db, 'boards', 'b1'), { saved: 'yes' }));
     await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { title: '바뀐 제목' }));
     await assertSucceeds(setDoc(doc(db, 'rooms', '4321'), { boardId: 'b1', ownerUid: HOST, title: '바뀐 제목', subtitle: '', openedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { session: { code: '4321', openedAt: serverTimestamp(), lastSeen: serverTimestamp() } }));
