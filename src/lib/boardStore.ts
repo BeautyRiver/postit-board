@@ -6,7 +6,8 @@
 //   rooms/{code}                     열린 방 (4자리 코드 → 보드). 열 때 만들고 닫을 때 지움. 하트비트로 바뀌지 않음 → 참여자는 이 문서만 구독
 //   admins/{uid}                     강사 계정 목록 (콘솔에서 직접 등록)
 //
-// 참여자 1명이 쓰는 읽기: 입장 확인 2회 + 방 구독 1회 + 닫힘 알림 1회 + 제출 시 규칙 확인 1회 정도
+// 참여자는 로그인하지 않는다 (같은 와이파이에서 익명 계정 생성 제한 ~100개/시간/IP에 걸리지 않도록).
+// 참여자 1명이 쓰는 읽기: 입장 확인 2회 + 방 구독 1회 + 제출 시 규칙 확인 1회 (+ 닫힘 알림 1회)
 import {
   addDoc, collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, onSnapshot, orderBy, query,
   runTransaction, serverTimestamp, updateDoc, where, writeBatch,
@@ -74,16 +75,26 @@ function currentUid(): string {
   return uid;
 }
 
-// 코드로 열린 방 찾기: 방 문서가 있고, 그 보드의 세션이 같은 코드로 살아 있어야 함
-async function lookupRoom(code: string): Promise<RoomInfo | null> {
-  const room = await getDoc(roomRef(code));
-  if (!room.exists()) return null;
-  const r = room.data();
+// 방 문서 → 그 보드의 세션이 같은 코드로 살아 있는지 확인 (보드 읽기 1회)
+async function liveRoom(code: string, r: DocumentData): Promise<RoomInfo | null> {
   const board = await getDoc(boardRef(r.boardId));
   if (!board.exists()) return null;
   const s = toSession(board.data().session);
   if (!s || s.code !== code || !isSessionActive(s)) return null;
   return { code, boardId: r.boardId, title: r.title, subtitle: r.subtitle || '' };
+}
+
+// 입장하기 버튼에서 막 확인한 방은 바로 이어지는 방 구독에서 다시 확인하지 않는다 (참여자당 읽기 2회 절약)
+const recentLookups = new Map<string, { room: RoomInfo; at: number }>();
+const LOOKUP_REUSE_MS = 30_000;
+
+// 코드로 열린 방 찾기: 방 문서가 있고, 그 보드의 세션이 같은 코드로 살아 있어야 함 (읽기 2회)
+async function lookupRoom(code: string): Promise<RoomInfo | null> {
+  const room = await getDoc(roomRef(code));
+  if (!room.exists()) return null;
+  const live = await liveRoom(code, room.data());
+  if (live) recentLookups.set(code, { room: live, at: Date.now() });
+  return live;
 }
 
 export const BoardStore = {
@@ -136,7 +147,7 @@ export const BoardStore = {
   // 열린 방의 현재 코드로만 붙일 수 있다 (보안 규칙이 강제 — 닫혔으면 permission-denied)
   async addPostit(boardId: string, code: string, item: PostitInput): Promise<void> {
     try {
-      await addDoc(postitsCol(boardId), { ...item, code, authorUid: currentUid(), createdAt: serverTimestamp() });
+      await addDoc(postitsCol(boardId), { ...item, code, createdAt: serverTimestamp() });
     } catch (err) {
       if ((err as { code?: string }).code === 'permission-denied') throw new RoomClosedError();
       throw err;
@@ -238,25 +249,28 @@ export function useBoard(id: string | undefined): Board | null | undefined {
 }
 
 // 참여자: 코드로 열린 방 구독. 강사가 방을 닫으면(rooms 문서 삭제) 즉시 null
-// enabled=false 이면 (익명 로그인 전) 대기
-export function useRoom(code: string | undefined, enabled = true): RoomInfo | null | undefined {
+export function useRoom(code: string | undefined): RoomInfo | null | undefined {
   const [state, setState] = useState<{ code: string; room: RoomInfo | null } | null>(null);
   useEffect(() => {
-    if (!code || !enabled) return;
+    if (!code) return;
     let checked = false;
     return onSnapshot(roomRef(code), async snap => {
       if (!snap.exists()) { setState({ code, room: null }); return; }
       const r = snap.data();
       if (!checked) {
         // 처음 한 번만 보드의 하트비트로 살아 있는지 확인 (탭을 그냥 닫아 rooms 문서가 남은 경우 대비)
+        // 방금 입장하기 버튼에서 확인했다면 그 결과를 그대로 사용
         checked = true;
-        const live = await lookupRoom(code).catch(() => null);
+        const recent = recentLookups.get(code);
+        const live = recent && Date.now() - recent.at < LOOKUP_REUSE_MS && recent.room.boardId === r.boardId
+          ? recent.room
+          : await liveRoom(code, r).catch(() => null);
         setState({ code, room: live });
         return;
       }
       setState(s => ({ code, room: s?.room ? { ...s.room, title: r.title, subtitle: r.subtitle || '' } : null }));
     }, () => setState({ code, room: null }));
-  }, [code, enabled]);
+  }, [code]);
   if (!code) return null;
   return state && state.code === code ? state.room : undefined;
 }

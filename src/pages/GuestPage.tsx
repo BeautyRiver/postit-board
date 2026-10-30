@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ensureGuestUser, useGuestAuth } from '../lib/auth';
 import { BoardStore, RoomClosedError, useRoom } from '../lib/boardStore';
 import { CATEGORIES, CODE_LENGTH, LIMITS, POSTIT_COLORS, colorValue } from '../lib/constants';
 import { photoToDataUrl } from '../lib/image';
@@ -269,8 +268,7 @@ function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void })
 // 코드가 틀렸거나 방이 닫혀 있으면(강사가 나감·탭 닫음) 입장 불가, 작성 중 방이 닫히면 코드 입력 화면으로
 export function GuestPage() {
   const { code } = useParams();
-  const { ready, error } = useGuestAuth();   // 익명 로그인 (보안 규칙상 로그인한 사용자만 읽기·쓰기)
-  const room = useRoom(code, ready);
+  const room = useRoom(code);   // 참여자는 로그인 없이 코드로만 입장
   const navigate = useNavigate();
   // 이 코드로 입장했던 적이 있는지 (→ 지금 null이면 '방이 닫힘' 안내)
   const [joinedCode, setJoinedCode] = useState<string | null>(null);
@@ -280,7 +278,7 @@ export function GuestPage() {
 
   async function onJoin(input: string) {
     const c = input.trim();
-    const found = await ensureGuestUser().then(() => BoardStore.findByCode(c)).catch(() => null);
+    const found = await BoardStore.findByCode(c).catch(() => null);
     if (!found) return false;
     setClosedCode(null);
     navigate(`/b/${c}`);
@@ -288,9 +286,7 @@ export function GuestPage() {
   }
 
   let content = null;
-  if (error) {
-    content = <div className="guest-form"><div className="guest-header"><h1>연결 오류</h1><p>{error}</p></div></div>;
-  } else if (room && code && closedCode !== code) {
+  if (room && code && closedCode !== code) {
     content = <GuestForm key={room.boardId + code} room={room} onClosed={() => setClosedCode(code)} />;
   } else if (room === null || (room && closedCode === code)) {
     const notice: JoinNotice = code ? (joinedCode === code ? 'closed' : 'inactive') : null;

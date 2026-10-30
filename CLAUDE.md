@@ -37,6 +37,8 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
   - Firestore 구조: `boards/{id}.session = {code, openedAt, lastSeen}` + `rooms/{code} → {boardId, ownerUid, title, subtitle, openedAt}`(코드 조회·중복 방지, 트랜잭션)
   - **읽기 절약 원칙**: 하트비트는 `boards` 문서에만 쓰고, 참여자는 `boards`를 구독하지 않는다(입장 시 1회 get). 참여자는 하트비트로 바뀌지 않는 `rooms/{code}`만 구독 → 강사가 나가면(rooms 삭제) 즉시 알림. 탭을 그냥 닫은 경우는 참여자가 제출할 때 보안 규칙이 거부(`RoomClosedError`)해서 알게 됨
   - 강사 권한: Google 로그인 + `admins/{uid}` 문서 존재. 미등록 계정이면 로그인 화면에 UID 표시
+  - **참여자는 로그인하지 않음** (익명 로그인 제거). 100명 부하 테스트에서 같은 IP의 익명 계정 생성이 시간당 약 100개로 막힘 → 강의실 공용 와이파이에서 입장 불가 위험. 규칙이 로그인 없이 `rooms`·`boards` 단건 get과 포스트잇 create(열린 방·코드·형식 검증)만 허용
+  - 참여자 읽기: 입장하기(방+보드 2회) → 방 구독(1회, 방금 확인한 결과 재사용) → 제출 시 규칙 확인(1회). 실측(익명 로그인 시절, 93명·122개): 참여자 587회 + 벽 약 130회
   - 보드 삭제 확인은 보드 코드 대신 `삭제` 입력
 - **보드 저장**: 새 보드는 `saved: false`(임시). 벽의 "보드 저장" 버튼으로 저장한 보드만 남는다
   - 저장 안 한 보드에서 "보드 목록"/"로그아웃" → 확인 창(저장하고 나가기 / 저장 안 하고 나가기=보드·포스트잇 삭제 / 취소). 탭 닫기·새로고침은 브라우저 기본 경고
@@ -54,7 +56,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 ## 코드 구조
 - `src/lib/firebase.ts` — Firebase 초기화(.env.local). `VITE_USE_EMULATORS=true`면 로컬 에뮬레이터 연결
 - `src/lib/boardStore.ts` — Firestore 저장소 API(`BoardStore` + `openSession/heartbeat/closeSession/findByCode`, 훅 `useBoards/useBoard/useRoom/usePostits/usePostitCount/useNow`)
-- `src/lib/auth.tsx` — 강사 Google 로그인+admins 확인(`useAuth`), 참여자 익명 로그인(`useGuestAuth`, `ensureGuestUser`). 에뮬레이터 모드에서만 `window.__emulatorGoogleUser`로 팝업 없이 테스트 로그인 가능
+- `src/lib/auth.tsx` — 강사 Google 로그인+admins 확인(`useAuth`). 참여자는 로그인 없음. 에뮬레이터 모드에서만 `window.__emulatorGoogleUser`로 팝업 없이 테스트 로그인 가능
 - `src/lib/image.ts` — 사진 → 1000px JPEG data URL (700,000자 넘으면 품질·크기 단계적 축소). 상한은 `firestore.rules`와 같은 값
 - `firestore.rules` — 보안 규칙 (세션 코드·하트비트 90초 검증, 입력 길이·형식 검증). `tests/firestore.rules.test.mjs`로 검증
 - `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분

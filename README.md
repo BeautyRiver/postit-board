@@ -5,7 +5,7 @@
 
 ## 기능
 - 강사: 보드 생성·수정·삭제, 포스트잇 벽, 카테고리 필터, 확대 보기
-- 참여자: QR 또는 6자리 코드로 입장, 의견·사진 작성, 익명 옵션
+- 참여자: QR로 접속 후 4자리 입장 코드로 입장(로그인 없음), 의견·사진 작성, 익명 옵션
 
 ## 기술 스택
 Vite · React · TypeScript · Firebase (Hosting, Firestore, Storage, Auth)

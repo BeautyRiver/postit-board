@@ -11,11 +11,10 @@ let env;
 const HOST = 'host-uid';
 const OTHER_HOST = 'other-host-uid';
 const NOT_ADMIN = 'not-admin-uid';
-const GUEST = 'guest-uid';
 
 const hostDb = (uid = HOST) => env.authenticatedContext(uid, { firebase: { sign_in_provider: 'google.com' } }).firestore();
-const guestDb = () => env.authenticatedContext(GUEST, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
-const anonDb = () => env.unauthenticatedContext().firestore();
+// 참여자는 로그인하지 않는다
+const guestDb = () => env.unauthenticatedContext().firestore();
 
 const secondsAgo = s => Timestamp.fromMillis(Date.now() - s * 1000);
 
@@ -33,7 +32,7 @@ async function seed({ session = { code: '1234', openedAt: secondsAgo(60), lastSe
 
 const postit = (extra = {}) => ({
   body: '좋았어요', author: '익명', anonymous: true, color: 'yellow', category: 'praise',
-  photoUrl: null, photoCaption: null, authorUid: GUEST, code: '1234', createdAt: serverTimestamp(), ...extra,
+  photoUrl: null, photoCaption: null, code: '1234', createdAt: serverTimestamp(), ...extra,
 });
 
 before(async () => {
@@ -45,7 +44,7 @@ before(async () => {
 after(() => env.cleanup());
 beforeEach(() => env.clearFirestore());
 
-describe('참여자 (익명 로그인)', () => {
+describe('참여자 (로그인 없음)', () => {
   test('열린 방 코드로 방·보드 단건 조회 가능', async () => {
     await seed();
     await assertSucceeds(getDoc(doc(guestDb(), 'rooms', '1234')));
@@ -57,9 +56,9 @@ describe('참여자 (익명 로그인)', () => {
     await assertFails(getDocs(collection(guestDb(), 'boards')));
     await assertFails(getDocs(collection(guestDb(), 'boards', 'b1', 'postits')));
   });
-  test('로그인 안 하면 아무것도 못 읽음', async () => {
+  test('강사 목록(admins)은 읽을 수 없음', async () => {
     await seed();
-    await assertFails(getDoc(doc(anonDb(), 'rooms', '1234')));
+    await assertFails(getDoc(doc(guestDb(), 'admins', HOST)));
   });
   test('열린 방에 포스트잇 붙이기 가능', async () => {
     await seed();
@@ -83,12 +82,12 @@ describe('참여자 (익명 로그인)', () => {
     await seed({ session: { code: '1234', openedAt: secondsAgo(600), lastSeen: secondsAgo(120) } });
     await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit()));
   });
-  test('형식 위반 포스트잇 불가 (201자, 남의 uid, 이상한 색, 추가 필드, 시간 위조)', async () => {
+  test('형식 위반 포스트잇 불가 (201자, 빈 글, 이상한 색, 추가 필드, 시간 위조)', async () => {
     await seed();
     const col = collection(guestDb(), 'boards', 'b1', 'postits');
     await assertFails(addDoc(col, postit({ body: 'a'.repeat(201) })));
     await assertFails(addDoc(col, postit({ body: '' })));
-    await assertFails(addDoc(col, postit({ authorUid: 'someone-else' })));
+    await assertFails(addDoc(col, postit({ authorUid: 'someone' })));
     await assertFails(addDoc(col, postit({ color: 'black' })));
     await assertFails(addDoc(col, postit({ likes: 99 })));
     await assertFails(addDoc(col, postit({ createdAt: secondsAgo(1000) })));
@@ -97,7 +96,7 @@ describe('참여자 (익명 로그인)', () => {
     await seed();
     await assertFails(updateDoc(doc(guestDb(), 'boards', 'b1'), { title: '해킹' }));
     await assertFails(deleteDoc(doc(guestDb(), 'rooms', '1234')));
-    await assertFails(setDoc(doc(guestDb(), 'rooms', '5555'), { boardId: 'b1', ownerUid: GUEST, title: 'x', subtitle: '', openedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(guestDb(), 'rooms', '5555'), { boardId: 'b1', ownerUid: 'someone', title: 'x', subtitle: '', openedAt: serverTimestamp() }));
   });
 });
 
@@ -109,7 +108,7 @@ describe('강사', () => {
       ownerUid: NOT_ADMIN, title: 't', subtitle: '', instructor: 'i', session: null, createdAt: serverTimestamp(),
     }));
   });
-  test('익명 계정은 admins에 있어도 강사 아님', async () => {
+  test('Google이 아닌 로그인(익명 등)은 admins에 있어도 강사 아님', async () => {
     await seed();
     const anonAsHost = env.authenticatedContext(HOST, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
     await assertFails(getDocs(collection(anonAsHost, 'boards')));

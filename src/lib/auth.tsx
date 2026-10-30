@@ -1,5 +1,6 @@
-// 인증 — 강사: Google 로그인 + Firestore admins/{uid} 등록 여부 확인 / 참여자: 익명 로그인(자동)
-import { GoogleAuthProvider, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup, signOut as fbSignOut, type User } from 'firebase/auth';
+// 인증 — 강사만 로그인: Google 로그인 + Firestore admins/{uid} 등록 여부 확인
+// 참여자는 로그인하지 않음 (같은 와이파이에서 익명 계정 생성 제한에 걸리지 않도록)
+import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut as fbSignOut, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { USE_EMULATORS, auth, db } from './firebase';
@@ -79,25 +80,4 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth는 AuthProvider 안에서 사용해야 합니다');
   return ctx;
-}
-
-// 로그인돼 있지 않으면 익명 로그인 (참여자가 Firestore를 읽고 쓰기 전에 호출)
-// oxlint-disable-next-line react/only-export-components
-export async function ensureGuestUser(): Promise<void> {
-  await auth.authStateReady();
-  if (!auth.currentUser) await signInAnonymously(auth);
-}
-
-// 참여자 화면용: 로그인돼 있지 않으면 익명 로그인. 준비되면 true
-// oxlint-disable-next-line react/only-export-components
-export function useGuestAuth(): { ready: boolean; error: string | null } {
-  const [state, setState] = useState<{ ready: boolean; error: string | null }>({ ready: !!auth.currentUser, error: null });
-  useEffect(() => onAuthStateChanged(auth, user => {
-    if (user) {
-      setState({ ready: true, error: null });
-    } else {
-      signInAnonymously(auth).catch(() => setState({ ready: false, error: '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.' }));
-    }
-  }), []);
-  return state;
 }
