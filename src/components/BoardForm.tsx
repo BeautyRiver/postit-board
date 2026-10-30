@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { LIMITS } from '../lib/constants';
+import { LIMITS, errorMessage } from '../lib/constants';
 import type { Board, BoardInput } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -22,7 +22,7 @@ export function BoardForm({ initial, onSave, onClose }: {
     try {
       await onSave({ title: title.trim(), subtitle: subtitle.trim(), instructor: instructor.trim() });
     } catch (err) {
-      alert(err instanceof Error ? err.message : '저장하지 못했어요');
+      alert(errorMessage(err, '저장하지 못했어요'));
       setSaving(false);
     }
   }

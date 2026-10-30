@@ -71,3 +71,14 @@ export function fmtDate(ts: number): string {
   const d = new Date(ts);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
+
+// Firestore 오류를 강사에게 보여줄 안내 문구로 (설정 문제를 바로 알 수 있게)
+export function errorMessage(err: unknown, fallback: string): string {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === 'permission-denied') {
+    return '권한이 없어요. Firestore 보안 규칙이 최신이 아닐 수 있어요 — firestore.rules 내용을 콘솔 Firestore → 규칙 탭에 다시 게시해주세요.';
+  }
+  if (code === 'unavailable') return '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.';
+  if (code) return `${fallback} (${code})`;
+  return err instanceof Error && err.message ? err.message : fallback;
+}

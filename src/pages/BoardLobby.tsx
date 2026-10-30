@@ -8,7 +8,7 @@ import { useTakeoff } from '../components/TakeoffProvider';
 import { seedDemoBoard } from '../dev/seed';
 import { useAuth } from '../lib/auth';
 import { BoardStore, useBoards, useNow, usePostitCount } from '../lib/boardStore';
-import { UNSAVED_BOARD_TTL_MS, fmtDate, isSessionActive } from '../lib/constants';
+import { UNSAVED_BOARD_TTL_MS, errorMessage, fmtDate, isSessionActive } from '../lib/constants';
 import type { Board } from '../lib/types';
 
 function BoardRow({ b, now, onOpen, onEdit, onDelete }: {
@@ -69,7 +69,7 @@ export function BoardLobby() {
       const code = await BoardStore.openSession(b.id, { fresh: true });
       takeoff(b, code);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '보드를 열지 못했어요');
+      alert(errorMessage(err, '보드를 열지 못했어요'));
     }
   }
 

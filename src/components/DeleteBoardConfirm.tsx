@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePostitCount } from '../lib/boardStore';
+import { errorMessage } from '../lib/constants';
 import type { Board } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -21,7 +22,7 @@ export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
     try {
       await onConfirm();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '삭제하지 못했어요');
+      alert(errorMessage(err, '삭제하지 못했어요'));
       setBusy(false);
     }
   }

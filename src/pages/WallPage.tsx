@@ -9,7 +9,7 @@ import { Postit } from '../components/Postit';
 import { QRCard } from '../components/QRCard';
 import { useAuth } from '../lib/auth';
 import { BoardStore, useBoard, usePostits } from '../lib/boardStore';
-import { CATEGORIES, HEARTBEAT_MS, isSessionActive } from '../lib/constants';
+import { CATEGORIES, HEARTBEAT_MS, errorMessage, isSessionActive } from '../lib/constants';
 import { generateLayout } from '../lib/layout';
 import type { Postit as PostitData } from '../lib/types';
 
@@ -122,8 +122,8 @@ export function WallPage() {
     setSaving(true);
     try {
       await BoardStore.save(board!.id);
-    } catch {
-      alert('저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+    } catch (err) {
+      alert(errorMessage(err, '저장하지 못했어요'));
     } finally {
       setSaving(false);
     }
@@ -137,8 +137,8 @@ export function WallPage() {
       if (mode === 'save') await BoardStore.save(board!.id);
       if (mode === 'discard') await BoardStore.remove(board!.id);
       else await BoardStore.closeSession(board!.id).catch(() => {});
-    } catch {
-      alert('처리하지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+    } catch (err) {
+      alert(errorMessage(err, '처리하지 못했어요'));
       setLeaving(false);
       return;
     }
