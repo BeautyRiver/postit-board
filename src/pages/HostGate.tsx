@@ -4,6 +4,25 @@ import { Clouds } from '../components/Clouds';
 import { IconGoogle } from '../components/Icons';
 import { NotAdminError, useAuth } from '../lib/auth';
 
+// 로그인 실패 원인별 안내 (설정 누락을 바로 알 수 있도록 오류 코드도 함께 표시)
+function loginErrorMessage(code: string | undefined): string {
+  const hint = ({
+    'auth/popup-blocked': '브라우저가 로그인 팝업을 막았어요. 주소창 오른쪽에서 팝업을 허용한 뒤 다시 시도해주세요.',
+    'auth/operation-not-allowed': 'Firebase 콘솔에서 Google 로그인이 꺼져 있어요. Authentication → 로그인 방법 → Google을 사용 설정해주세요.',
+    'auth/configuration-not-found': 'Firebase 콘솔에서 Authentication이 시작되지 않았어요. Authentication → 시작하기 → Google을 사용 설정해주세요.',
+    'auth/unauthorized-domain': '이 사이트 주소가 승인된 도메인에 없어요. Authentication → 설정 → 승인된 도메인에 추가해주세요.',
+    'auth/api-key-not-valid': 'Firebase 설정값(API 키)이 잘못됐어요. .env.local 또는 GitHub Secret ENV_LOCAL을 확인해주세요.',
+    'auth/invalid-api-key': 'Firebase 설정값(API 키)이 잘못됐어요. .env.local 또는 GitHub Secret ENV_LOCAL을 확인해주세요.',
+    'auth/auth-domain-config-required': 'Firebase 설정값에 authDomain이 없어요. VITE_FIREBASE_AUTH_DOMAIN을 확인해주세요.',
+    'auth/network-request-failed': '인터넷 연결을 확인하고 다시 시도해주세요.',
+    'permission-denied': 'Firestore 보안 규칙이 게시되지 않았어요. firestore.rules 내용을 콘솔 Firestore → 규칙 탭에 붙여넣고 게시해주세요.',
+    'not-found': 'Firestore 데이터베이스가 없어요. 콘솔에서 Firestore Database를 (default) ID로 만들어주세요.',
+    'failed-precondition': 'Firestore 데이터베이스가 아직 준비되지 않았어요. 콘솔에서 Firestore Database를 만들었는지 확인해주세요.',
+    'unavailable': 'Firestore에 연결하지 못했어요. 잠시 후 다시 시도해주세요.',
+  } as Record<string, string>)[code || ''];
+  return (hint || '로그인하지 못했어요. 다시 시도해주세요.') + (code ? ` (${code})` : '');
+}
+
 // 강사 로그인 — 프로토타입 PIN 게이트의 카드·배경·구름 비주얼 유지, 내용만 Google 로그인으로 교체
 export function HostGate() {
   const { signInWithGoogle } = useAuth();
@@ -27,11 +46,9 @@ export function HostGate() {
         setNotAdminUid(err.uid);
       } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
         // 사용자가 로그인 창을 닫음 — 안내 없이 원래대로
-      } else if (code === 'auth/popup-blocked') {
-        setError('브라우저가 로그인 팝업을 막았어요. 팝업을 허용한 뒤 다시 시도해주세요.');
       } else {
         console.error('Google 로그인 실패', err);
-        setError('로그인하지 못했어요. 다시 시도해주세요.');
+        setError(loginErrorMessage(code));
       }
       setBusy(false);
     }
