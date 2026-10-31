@@ -68,14 +68,14 @@ describe('참여자 (로그인 없음)', () => {
     await seed();
     await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit({ photoUrl: 'data:image/jpeg;base64,AAAA' })));
   });
-  test('틀린 코드·닫힌 방·하트비트 끊긴 방에는 못 붙임', async () => {
+  test('틀린 코드·닫힌 방·하트비트 끊긴 방(180초 초과)에는 못 붙임', async () => {
     await seed();
     await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit({ code: '9999' })));
     await env.clearFirestore();
     await seed({ session: null });
     await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit()));
     await env.clearFirestore();
-    await seed({ session: { code: '1234', openedAt: secondsAgo(600), lastSeen: secondsAgo(120) } });
+    await seed({ session: { code: '1234', openedAt: secondsAgo(900), lastSeen: secondsAgo(300) } });
     await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit()));
   });
   test('형식 위반 포스트잇 불가 (201자, 빈 글, 이상한 색, 추가 필드, 시간 위조)', async () => {

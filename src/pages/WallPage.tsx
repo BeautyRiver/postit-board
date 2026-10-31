@@ -9,7 +9,7 @@ import { Postit } from '../components/Postit';
 import { QRCard } from '../components/QRCard';
 import { useAuth } from '../lib/auth';
 import { BoardStore, useBoard, usePostits } from '../lib/boardStore';
-import { CATEGORIES, HEARTBEAT_MS, errorMessage, isSessionActive } from '../lib/constants';
+import { CATEGORIES, HEARTBEAT_MS, SESSION_TTL_MS, errorMessage } from '../lib/constants';
 import { generateLayout } from '../lib/layout';
 import type { Postit as PostitData } from '../lib/types';
 
@@ -118,21 +118,29 @@ export function WallPage() {
   }, [board, navigate]);
 
   // 벽이 열려 있는 동안 입장 세션 유지. 처음엔 세션 확인(새로고침이면 기존 코드 그대로 이어감),
-  // 이후 30초마다 하트비트(쓰기 1회). 세션이 끊겨 있으면 다시 열어 새 코드 발급
+  // 이후 30초마다 하트비트(쓰기 1회). 세션이 없어졌거나 오래 멈췄으면 다시 연다(가능하면 같은 코드).
+  // 강사 PC 시계로 판단하지 않는다 — 시계가 틀려도 코드가 바뀌지 않도록
   const latestBoard = useRef(board);
   useEffect(() => { latestBoard.current = board; }, [board]);
   const boardExists = !!board;
   useEffect(() => {
     if (!boardId || !boardExists) return;
+    let lastBeat = Date.now();
     BoardStore.openSession(boardId, { fresh: false }).catch(() => {});
-    const t = setInterval(() => {
-      const s = latestBoard.current?.session;
-      const beat = s && isSessionActive(s)
+    const beat = () => {
+      const gap = Date.now() - lastBeat;
+      lastBeat = Date.now();
+      // 오래 멈춰 있었으면(절전·숨은 탭) 방이 만료됐을 수 있으니 같은 코드로 다시 열기 시도
+      const p = latestBoard.current?.session && gap < SESSION_TTL_MS
         ? BoardStore.heartbeat(boardId)
         : BoardStore.openSession(boardId, { fresh: false });
-      beat.catch(() => {});
-    }, HEARTBEAT_MS);
-    return () => clearInterval(t);
+      p.catch(() => {});
+    };
+    const t = setInterval(beat, HEARTBEAT_MS);
+    // PPT 등에서 브라우저로 돌아오면 바로 하트비트 (숨은 탭은 타이머가 늦어짐)
+    const onVisible = () => { if (document.visibilityState === 'visible') beat(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVisible); };
   }, [boardId, boardExists]);
 
   const all = useMemo(() => postits || [], [postits]);
@@ -198,7 +206,8 @@ export function WallPage() {
     else setLeaveTarget(target);
   }
 
-  const code = isSessionActive(board.session) ? board.session!.code : null;
+  // 벽 자신이 하트비트를 보내는 중이므로 세션이 있으면 그대로 표시 (PC 시계 오차와 무관)
+  const code = board.session?.code ?? null;
 
   return (
     <div className="sky-bg" style={{ position: 'absolute', inset: 0 }}>

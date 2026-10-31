@@ -175,7 +175,8 @@ export const BoardStore = {
 
   // --- 입장 세션 ---
   // fresh=true(보드 목록에서 열기): 항상 새 코드
-  // fresh=false(벽 새로고침 등): 아직 살아 있으면 기존 코드 유지, 끊겼으면 새 코드
+  // fresh=false(벽 새로고침·하트비트 복구): 기존 코드를 그대로 이어감. 하트비트가 끊겼더라도(절전·화면 전환·시계 오차)
+  //   그 코드를 다른 방이 가져가지 않았으면 같은 코드로 다시 연다 → 참여자가 코드를 다시 입력할 필요 없음
   openSession(boardId: string, { fresh }: { fresh: boolean }): Promise<string> {
     const ownerUid = currentUid();
     return runTransaction(db, async tx => {
@@ -187,6 +188,21 @@ export const BoardStore = {
       if (!fresh && prev && isSessionActive(prev)) {
         tx.update(boardRef(boardId), { 'session.lastSeen': serverTimestamp() });
         return prev.code;
+      }
+      if (!fresh && prev) {
+        const r = await tx.get(roomRef(prev.code));
+        let reusable = !r.exists() || r.data().boardId === boardId;
+        if (!reusable) {
+          // 다른 보드가 이 코드를 쓰고 있다면 그 방이 살아 있는지 확인
+          const other = await tx.get(boardRef(r.data()!.boardId));
+          const os = other.exists() ? toSession(other.data().session) : null;
+          reusable = !os || os.code !== prev.code || !isSessionActive(os);
+        }
+        if (reusable) {
+          tx.set(roomRef(prev.code), { boardId, ownerUid, ...roomFields(board), openedAt: serverTimestamp() });
+          tx.update(boardRef(boardId), { session: { code: prev.code, openedAt: serverTimestamp(), lastSeen: serverTimestamp() } });
+          return prev.code;
+        }
       }
 
       // 새 코드: 직전 코드가 아니고, 다른 방이 쓰고 있지 않은(또는 그 방이 이미 끊긴) 코드
