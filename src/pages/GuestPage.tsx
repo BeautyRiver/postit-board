@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { BoardStore, RoomClosedError, useRoom } from '../lib/boardStore';
 import { CATEGORIES, CODE_LENGTH, LIMITS, POSTIT_COLORS, colorValue } from '../lib/constants';
-import { photoToDataUrl } from '../lib/image';
 import type { CategoryId, PostitColor, RoomInfo } from '../lib/types';
 
 const NAME_KEY = 'postit.guestName';
@@ -81,43 +80,26 @@ function GuestJoin({ code, notice, onJoin }: {
 }
 
 // 참여자 — 의견 작성
-function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void }) {
-  const [draft] = useState(readDraft);
+// preview=true: 강사의 보드 설정 창 미리보기용 (임시 저장·제출 안 함)
+export function GuestForm({ room, onClosed, preview = false }: { room: RoomInfo; onClosed?: () => void; preview?: boolean }) {
+  const [draft] = useState(() => (preview ? {} : readDraft()));
   const [body, setBody] = useState(draft.body ?? '');
   const [color, setColor] = useState<PostitColor>(draft.color ?? 'yellow');
   const [category, setCategory] = useState<CategoryId>(draft.category ?? 'question');
   const [anonymous, setAnonymous] = useState(draft.anonymous ?? false);
-  const [name, setName] = useState(readSavedName);
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [photoBusy, setPhotoBusy] = useState(false);
+  const [name, setName] = useState(() => (preview ? '' : readSavedName()));
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);  // 연타 시 같은 의견이 두 번 붙지 않도록 (state는 다음 렌더까지 반영이 늦음)
 
   useEffect(() => {
+    if (preview) return;
     saveDraft(body ? { body, color, category, anonymous } : null);
-  }, [body, color, category, anonymous]);
-
-  async function handlePhoto(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setPhotoBusy(true);
-    setError(null);
-    try {
-      // Storage 없이 포스트잇 문서에 함께 저장 → 긴 변 1000px, 용량 상한까지 줄인 JPEG data URL
-      setPhoto(await photoToDataUrl(file));
-    } catch {
-      setError('사진을 불러오지 못했어요. 다른 사진을 선택해 주세요.');
-    } finally {
-      setPhotoBusy(false);
-    }
-  }
+  }, [preview, body, color, category, anonymous]);
 
   async function handleSubmit() {
-    if (!body.trim() || sendingRef.current) return;
+    if (preview || !body.trim() || sendingRef.current) return;
     sendingRef.current = true;
     const author = name.trim();
     const isAnon = anonymous || !author;
@@ -130,7 +112,7 @@ function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void })
         anonymous: isAnon,
         color,
         category,
-        photoUrl: photo,
+        photoUrl: null,     // 사진 첨부 기능 제거
         photoCaption: null,
       });
       if (author) saveName(author);
@@ -139,10 +121,9 @@ function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void })
       setTimeout(() => {
         setSent(false);
         setBody('');
-        setPhoto(null);
       }, 1800);
     } catch (err) {
-      if (err instanceof RoomClosedError) { onClosed(); return; }  // 쓰던 글은 draft로 보관됨
+      if (err instanceof RoomClosedError) { onClosed?.(); return; }  // 쓰던 글은 draft로 보관됨
       setError('보내지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
     } finally {
       sendingRef.current = false;
@@ -150,12 +131,12 @@ function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void })
     }
   }
 
-  const canSubmit = !!body.trim() && !sending && !photoBusy;
+  const canSubmit = !!body.trim() && !sending;
 
   return (
     <div className="guest-form">
       <div className="guest-header">
-        <h1>오늘 수업, 어떠셨나요?</h1>
+        <h1>{room.prompt}</h1>
         <p>{room.subtitle ? room.subtitle + ' · ' : ''}{room.title}</p>
       </div>
 
@@ -194,7 +175,7 @@ function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void })
         <label style={{ color: 'rgba(0,0,0,0.55)' }}>의견을 남겨주세요</label>
         <textarea
           className="guest-textarea"
-          placeholder="자유롭게 적어주세요. 강사님이 직접 보고 답변드려요 ✈"
+          placeholder={room.placeholder}
           value={body}
           onChange={e => setBody(e.target.value)}
           maxLength={LIMITS.body}
@@ -202,22 +183,6 @@ function GuestForm({ room, onClosed }: { room: RoomInfo; onClosed: () => void })
         <div style={{ textAlign: 'right', fontSize: 11, color: 'rgba(0,0,0,0.45)', marginTop: 4 }}>
           {body.length}/{LIMITS.body}
         </div>
-      </div>
-
-      <div className="guest-card">
-        <label>사진 첨부 (선택)</label>
-        <input ref={fileRef} type="file" accept="image/*" className="visually-hidden" onChange={handlePhoto} />
-        {photo ? (
-          <div className="photo-preview">
-            <img src={photo} alt="" />
-            <button className="photo-remove" onClick={() => setPhoto(null)}>×</button>
-          </div>
-        ) : (
-          <div className="photo-add" onClick={() => !photoBusy && fileRef.current?.click()}>
-            <div style={{ fontSize: 22, marginBottom: 4 }}>📷</div>
-            {photoBusy ? '사진을 준비하고 있어요…' : '사진을 첨부하면 폴라로이드처럼 보여요'}
-          </div>
-        )}
       </div>
 
       <div className="guest-card">

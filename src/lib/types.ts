@@ -17,6 +17,8 @@ export interface Board {
   title: string;         // ≤40
   subtitle: string;      // ≤40, 선택
   instructor: string;    // ≤20
+  prompt: string;        // 참여자 화면 질문 (≤40, 비어 있으면 기본 문구)
+  placeholder: string;   // 참여자 입력칸 안내 (≤80, 비어 있으면 기본 문구)
   createdAt: number;     // ms
 }
 
@@ -27,6 +29,8 @@ export interface RoomInfo {
   boardId: string;
   title: string;
   subtitle: string;
+  prompt: string;
+  placeholder: string;
 }
 
 // Firestore boards/{id}/postits/{postitId}
@@ -37,10 +41,10 @@ export interface Postit {
   anonymous: boolean;
   color: PostitColor;
   category: CategoryId;
-  photoUrl: string | null;     // 사진 data URL (Storage 미사용)
+  photoUrl: string | null;     // 사진 data URL — 사진 첨부 기능은 제거됨(항상 null). 예전 데이터 표시용으로만 남김
   photoCaption: string | null;
   createdAt: number;     // ms
 }
 
-export type BoardInput = Pick<Board, 'title' | 'subtitle' | 'instructor'>;
+export type BoardInput = Pick<Board, 'title' | 'subtitle' | 'instructor' | 'prompt' | 'placeholder'>;
 export type PostitInput = Omit<Postit, 'id' | 'createdAt'>;

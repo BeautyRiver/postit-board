@@ -4,7 +4,7 @@ import { BoardForm } from '../components/BoardForm';
 import { Clouds } from '../components/Clouds';
 import { FocusView } from '../components/FocusView';
 import { Modal } from '../components/Modal';
-import { IconEdit, IconGrid, IconLogout } from '../components/Icons';
+import { IconEdit, IconGrid, IconLogout, IconMaximize, IconMinimize } from '../components/Icons';
 import { Postit } from '../components/Postit';
 import { QRCard } from '../components/QRCard';
 import { useAuth } from '../lib/auth';
@@ -15,6 +15,28 @@ import type { Postit as PostitData } from '../lib/types';
 
 const SWAY_ENABLED = true; // 흔들림 항상 켬 (결정 사항)
 const CELL = 240;
+
+// 전체화면(발표) 모드: 모든 포스트잇이 스크롤 없이 한 화면에 들어오도록 열 수와 배율을 고른다
+// (포스트잇이 적으면 최대 1.8배까지 크게)
+const PRESENT_TOP = 80;          // 상단 바 높이
+const PRESENT_PAD = { x: 30, top: 40, bottom: 20 };
+const PRESENT_MAX_SCALE = 1.8;
+function fitPresentation(n: number, w: number, h: number) {
+  const availW = w, availH = h - PRESENT_TOP;
+  let best = { cols: 1, scale: 0, contentW: 0, contentH: 0 };
+  for (let cols = 1; cols <= Math.max(1, n); cols++) {
+    const rows = Math.ceil(Math.max(1, n) / cols);
+    const contentW = PRESENT_PAD.x * 2 + cols * CELL;
+    const contentH = PRESENT_PAD.top + rows * CELL + PRESENT_PAD.bottom;
+    const scale = Math.min(availW / contentW, availH / contentH, PRESENT_MAX_SCALE);
+    if (scale > best.scale) best = { cols, scale, contentW, contentH };
+  }
+  return {
+    ...best,
+    left: (availW - best.contentW * best.scale) / 2,
+    top: PRESENT_TOP + Math.max(0, (availH - best.contentH * best.scale) / 2),
+  };
+}
 
 function useWindowSize() {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -63,6 +85,23 @@ export function WallPage() {
   const [saving, setSaving] = useState(false);
   const [leaveTarget, setLeaveTarget] = useState<'lobby' | 'logout' | null>(null);  // 저장 안 한 채 나가려 할 때 확인 창
   const [leaving, setLeaving] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+
+  // 전체화면 모드: 브라우저 전체화면 + 한 화면 맞춤 배치. ESC 등으로 브라우저 전체화면이 풀리면 같이 종료
+  useEffect(() => {
+    if (!presenting) return;
+    const onChange = () => { if (!document.fullscreenElement) setPresenting(false); };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, [presenting]);
+  function startPresenting() {
+    setPresenting(true);
+    document.documentElement.requestFullscreen?.().catch(() => {});   // 지원 안 하는 브라우저는 창 안에서만 맞춤 배치
+  }
+  function stopPresenting() {
+    setPresenting(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
 
   // 저장하지 않은 보드에서 탭을 닫거나 새로고침하려 하면 브라우저 경고 (문구는 브라우저 기본)
   const unsaved = board ? !board.saved : false;
@@ -103,16 +142,19 @@ export function WallPage() {
     return acc;
   }, {});
 
-  const cols = Math.max(3, Math.floor((winW - 80) / CELL));
+  const fit = presenting ? fitPresentation(filtered.length, winW, winH) : null;
+  const cols = fit ? fit.cols : Math.max(3, Math.floor((winW - 80) / CELL));
+  const startX = fit ? PRESENT_PAD.x : 80;
+  const startY = fit ? PRESENT_PAD.top : 130;
   const layouted = useMemo(() => generateLayout(filtered, {
     cols,
     cellW: CELL,
     cellH: CELL,
-    startX: 80,
-    startY: 130,
+    startX,
+    startY,
     jitter: 22,
     rotJitter: 5,
-  }), [filtered, cols]);
+  }), [filtered, cols, startX, startY]);
 
   const wallHeight = Math.max(winH, 130 + Math.ceil(filtered.length / cols) * CELL + 80);
 
@@ -164,7 +206,7 @@ export function WallPage() {
       <div className="contrail"></div>
 
       <div className="top-bar">
-        <button className="brand brand-editable" onClick={() => setEditing(true)} title="보드 정보 수정">
+        <button className="brand brand-editable" onClick={() => !presenting && setEditing(true)} title={presenting ? undefined : '보드 정보 수정'}>
           <div className="brand-mark">✈</div>
           <div className="brand-text">
             <div className="brand-title">{board.title}</div>
@@ -180,6 +222,16 @@ export function WallPage() {
           <div className="stat-chip">
             ✎ <strong>{all.length}개</strong>의 의견
           </div>
+          {presenting ? (
+            <button className="stat-chip logout-btn" onClick={stopPresenting} title="전체화면 종료 (ESC)">
+              <IconMinimize />
+              전체화면 종료
+            </button>
+          ) : (<>
+          <button className="stat-chip logout-btn" onClick={startPresenting} title="모든 포스트잇을 한 화면에 크게 보기">
+            <IconMaximize />
+            전체화면
+          </button>
           {board.saved ? (
             <button className="stat-chip save-chip saved" disabled title="이 보드는 저장되어 있어요. 새 의견도 자동으로 남아요">
               ✓ 저장됨
@@ -197,11 +249,15 @@ export function WallPage() {
             <IconLogout />
             로그아웃
           </button>
+          </>)}
         </div>
       </div>
 
-      <div style={{ position: 'absolute', inset: 0, overflow: 'auto' }}>
-        <div style={{ position: 'relative', width: '100%', height: wallHeight, paddingBottom: 100 }}>
+      <div style={{ position: 'absolute', inset: 0, overflow: fit ? 'hidden' : 'auto' }}>
+        <div style={fit ? {
+          position: 'absolute', left: fit.left, top: fit.top, width: fit.contentW, height: fit.contentH,
+          transform: `scale(${fit.scale})`, transformOrigin: '0 0',
+        } : { position: 'relative', width: '100%', height: wallHeight, paddingBottom: 100 }}>
           {layouted.map(p => (
             <Postit
               key={p.id}
@@ -229,7 +285,7 @@ export function WallPage() {
         </div>
       )}
 
-      <div className="filter-bar">
+      {!presenting && <div className="filter-bar">
         {CATEGORIES.map(c => (
           <button
             key={c.id}
@@ -241,9 +297,9 @@ export function WallPage() {
             <span className="count">{counts[c.id] || 0}</span>
           </button>
         ))}
-      </div>
+      </div>}
 
-      <QRCard code={code} />
+      {!presenting && <QRCard code={code} />}
 
       {selected && (
         <FocusView selected={selected} onClose={() => setSelected(null)} />

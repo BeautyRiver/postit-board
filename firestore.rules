@@ -43,11 +43,18 @@ service cloud.firestore {
             && s.openedAt is timestamp && s.lastSeen is timestamp);
     }
 
+    // 참여자 화면 문구 (선택, 비어 있으면 앱이 기본 문구 사용)
+    function validScreenText(d) {
+      return (!('prompt' in d) || isText(d.prompt, 0, 40))
+        && (!('placeholder' in d) || isText(d.placeholder, 0, 80));
+    }
+
     function validBoard(d) {
-      return d.keys().hasOnly(['ownerUid', 'title', 'subtitle', 'instructor', 'session', 'saved', 'createdAt'])
+      return d.keys().hasOnly(['ownerUid', 'title', 'subtitle', 'instructor', 'prompt', 'placeholder', 'session', 'saved', 'createdAt'])
         && isText(d.title, 1, 40)
         && isText(d.subtitle, 0, 40)
         && isText(d.instructor, 1, 20)
+        && validScreenText(d)
         && validSession(d.session)
         && (!('saved' in d) || d.saved is bool)
         && d.createdAt is timestamp;
@@ -66,10 +73,8 @@ service cloud.firestore {
         && d.anonymous is bool
         && d.color in ['yellow', 'pink', 'green', 'blue', 'orange', 'purple', 'mint', 'white']
         && d.category in ['question', 'praise', 'improve', 'etc']
-        // 사진: data URL, 700,000자 이하 (앱의 PHOTO_MAX_CHARS와 같은 값)
-        && (d.photoUrl == null
-            || (d.photoUrl is string && d.photoUrl.size() <= 700000
-                && d.photoUrl.matches('data:image/(jpeg|png|webp|svg\\+xml)[;,].*')))
+        // 사진 첨부 기능은 제거됨 → 사진은 받지 않는다
+        && d.photoUrl == null
         && (d.photoCaption == null || isText(d.photoCaption, 0, 40))
         && d.code is string
         && d.createdAt == request.time;
@@ -109,11 +114,12 @@ service cloud.firestore {
       allow list: if false;
       allow create, update: if isHost()
         && code.matches('[0-9]{4}')
-        && request.resource.data.keys().hasOnly(['boardId', 'ownerUid', 'title', 'subtitle', 'openedAt'])
+        && request.resource.data.keys().hasOnly(['boardId', 'ownerUid', 'title', 'subtitle', 'prompt', 'placeholder', 'openedAt'])
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.boardId is string
         && isText(request.resource.data.title, 1, 40)
-        && isText(request.resource.data.subtitle, 0, 40);
+        && isText(request.resource.data.subtitle, 0, 40)
+        && validScreenText(request.resource.data);
       allow delete: if isHost();
     }
   }

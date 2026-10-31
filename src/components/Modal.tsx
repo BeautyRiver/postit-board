@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 
-export function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+export function Modal({ children, onClose, wide = false }: { children: ReactNode; onClose: () => void; wide?: boolean }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', k);
@@ -8,7 +8,7 @@ export function Modal({ children, onClose }: { children: ReactNode; onClose: () 
   }, [onClose]);
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={e => e.stopPropagation()}>{children}</div>
+      <div className={`modal-card ${wide ? 'wide' : ''}`} onClick={e => e.stopPropagation()}>{children}</div>
     </div>
   );
 }

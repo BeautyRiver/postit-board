@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useAuth } from './auth';
-import { CODE_LENGTH, isSessionActive } from './constants';
+import { CODE_LENGTH, DEFAULT_PLACEHOLDER, DEFAULT_PROMPT, isSessionActive } from './constants';
 import { auth, db } from './firebase';
 import type { Board, BoardInput, BoardSession, Postit, PostitInput, RoomInfo } from './types';
 
@@ -47,8 +47,21 @@ function toBoard(snap: DocumentSnapshot): Board {
     title: d.title,
     subtitle: d.subtitle || '',
     instructor: d.instructor,
+    prompt: d.prompt || '',
+    placeholder: d.placeholder || '',
     createdAt: ms(d.createdAt),
   };
+}
+// rooms 문서 → 참여자 화면 정보 (문구가 비어 있으면 기본 문구)
+function toRoomInfo(code: string, r: DocumentData): RoomInfo {
+  return {
+    code, boardId: r.boardId, title: r.title, subtitle: r.subtitle || '',
+    prompt: r.prompt || DEFAULT_PROMPT, placeholder: r.placeholder || DEFAULT_PLACEHOLDER,
+  };
+}
+// 보드 → rooms 문서에 복사하는 참여자 화면 정보
+function roomFields(b: DocumentData) {
+  return { title: b.title, subtitle: b.subtitle || '', prompt: b.prompt || '', placeholder: b.placeholder || '' };
 }
 function toPostit(snap: DocumentSnapshot): Postit {
   const d = snap.data({ serverTimestamps: 'estimate' })!;
@@ -81,7 +94,7 @@ async function liveRoom(code: string, r: DocumentData): Promise<RoomInfo | null>
   if (!board.exists()) return null;
   const s = toSession(board.data().session);
   if (!s || s.code !== code || !isSessionActive(s)) return null;
-  return { code, boardId: r.boardId, title: r.title, subtitle: r.subtitle || '' };
+  return toRoomInfo(code, r);
 }
 
 // 입장하기 버튼에서 막 확인한 방은 바로 이어지는 방 구독에서 다시 확인하지 않는다 (참여자당 읽기 2회 절약)
@@ -104,10 +117,11 @@ export const BoardStore = {
     return snap.docs.map(toBoard);
   },
 
-  async create({ title, subtitle = '', instructor }: BoardInput): Promise<Board> {
+  async create({ title, subtitle = '', instructor, prompt = '', placeholder = '' }: BoardInput): Promise<Board> {
     const ownerUid = currentUid();
-    const ref = await addDoc(boardsCol, { ownerUid, title, subtitle, instructor, session: null, saved: false, createdAt: serverTimestamp() });
-    return { id: ref.id, ownerUid, title, subtitle, instructor, session: null, saved: false, createdAt: Date.now() };
+    const data = { ownerUid, title, subtitle, instructor, prompt, placeholder, session: null, saved: false };
+    const ref = await addDoc(boardsCol, { ...data, createdAt: serverTimestamp() });
+    return { id: ref.id, ...data, createdAt: Date.now() };
   },
 
   // 보드 저장 — 저장한 보드만 보드 목록에 계속 남는다
@@ -115,7 +129,7 @@ export const BoardStore = {
     await updateDoc(boardRef(id), { saved: true });
   },
 
-  // 보드 정보 수정. 방이 열려 있으면 참여자 화면 제목도 함께 바꾼다
+  // 보드 정보 수정. 방이 열려 있으면 참여자 화면(제목·질문 문구)도 함께 바꾼다 → 참여자에게 실시간 반영
   update(id: string, patch: Partial<BoardInput>): Promise<void> {
     return runTransaction(db, async tx => {
       const b = await tx.get(boardRef(id));
@@ -124,10 +138,7 @@ export const BoardStore = {
       const room = code ? await tx.get(roomRef(code)) : null;
       tx.update(boardRef(id), patch);
       if (room?.exists() && room.data().boardId === id) {
-        const roomPatch: Record<string, string> = {};
-        if (patch.title !== undefined) roomPatch.title = patch.title;
-        if (patch.subtitle !== undefined) roomPatch.subtitle = patch.subtitle;
-        if (Object.keys(roomPatch).length) tx.update(room.ref, roomPatch);
+        tx.update(room.ref, roomFields({ ...b.data(), ...patch }));
       }
     });
   },
@@ -195,7 +206,7 @@ export const BoardStore = {
       const prevRoom = prev ? await tx.get(roomRef(prev.code)) : null;
 
       if (prevRoom?.exists() && prevRoom.data().boardId === boardId) tx.delete(prevRoom.ref);
-      tx.set(roomRef(code), { boardId, ownerUid, title: board.title, subtitle: board.subtitle || '', openedAt: serverTimestamp() });
+      tx.set(roomRef(code), { boardId, ownerUid, ...roomFields(board), openedAt: serverTimestamp() });
       tx.update(boardRef(boardId), { session: { code, openedAt: serverTimestamp(), lastSeen: serverTimestamp() } });
       return code;
     });
@@ -268,7 +279,8 @@ export function useRoom(code: string | undefined): RoomInfo | null | undefined {
         setState({ code, room: live });
         return;
       }
-      setState(s => ({ code, room: s?.room ? { ...s.room, title: r.title, subtitle: r.subtitle || '' } : null }));
+      // 강사가 제목·질문 문구를 바꾸면 참여자 화면에 바로 반영
+      setState(s => ({ code, room: s?.room ? toRoomInfo(code, r) : null }));
     }, () => setState({ code, room: null }));
   }, [code]);
   if (!code) return null;

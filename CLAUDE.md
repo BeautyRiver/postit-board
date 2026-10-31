@@ -26,7 +26,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - 의견 수: 보드 문서에 `postitCount`를 두지 않고, 보드 목록·삭제 확인 시 Firestore count 집계 쿼리(`getCountFromServer`)로 조회. 벽 화면은 onSnapshot으로 실시간
 - Cloud Functions 사용 안 함 (무료 Spark 요금제 기준)
 - **카드 등록 없는 Spark 요금제 유지 → Cloud Storage 미사용** (2024.10 이후 Storage는 Blaze 필수)
-  - 사진은 클라이언트에서 긴 변 1000px JPEG로 줄여 data URL로 포스트잇 문서 `photoUrl`에 저장 (Firestore 문서 1MiB 제한 → 인코딩 후 약 700KB 이하가 되도록 품질 조절)
+  - **사진 첨부 기능은 제거함**(사용자 결정). 규칙이 `photoUrl == null`만 허용. 벽·포커스 뷰의 사진 표시 코드는 예전 데이터용으로 남김. 다시 넣으려면 git 기록의 `src/lib/image.ts`(1000px JPEG data URL, 700,000자 상한) 참고
   - Firestore 위치 `asia-northeast3`(서울)
 - **입장 코드 = 4자리 숫자 세션 코드** (보드 고정 코드 없음)
   - QR은 사이트 첫 화면(`/`)으로만 연결 → 참여자가 벽에 표시된 4자리 코드를 입력해야 입장 (`/b/:code`)
@@ -45,11 +45,13 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
   - 탭을 그냥 닫아 남은 임시 보드는 목록에 '임시'로 표시, 방이 닫혀 있고 만든 지 24시간 지나면 보드 목록을 열 때 자동 삭제(`UNSAVED_BOARD_TTL_MS`)
   - `saved` 필드가 없는 기존 보드는 저장된 것으로 취급
 - 벽 우하단 QR 카드를 누르면 화면 가득 큰 QR + 입장 코드 (배경 클릭·ESC로 닫기)
+- **참여자 화면 문구**: 보드마다 `prompt`(질문, ≤40)·`placeholder`(입력칸 안내, ≤80). 비어 있으면 기본 문구(`DEFAULT_PROMPT`, `DEFAULT_PLACEHOLDER`). 보드 만들기/수정 창에서 편집 + 예시 질문 칩 + 휴대폰 화면 실시간 미리보기(`GuestForm`을 `preview` 모드로 재사용). 열린 방이면 `rooms` 문서에도 복사돼 참여자 화면에 즉시 반영
+- **전체화면(발표) 모드**: 벽 상단 "전체화면" → 브라우저 전체화면 + 모든 포스트잇을 스크롤 없이 한 화면에 맞춰 배치(`fitPresentation`, 적으면 최대 1.8배 확대). QR·필터 바 숨김, 참여 코드는 상단에 유지. ESC 또는 "전체화면 종료"로 복귀
 
 ## 진행 단계 (design_handoff_postit_board/README.md "권장 작업 순서")
 1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료
 2. ✅ Firebase 연결 (Auth, Firestore onSnapshot) — 완료
-3. ✅ 사진 첨부 (1000px JPEG data URL, 700,000자 상한) — 완료
+3. ✅ 사진 첨부 — 구현 후 사용자 결정으로 제거
 4. ✅ 보안 규칙(`firestore.rules`, 테스트 `tests/`) · 보드 삭제 시 포스트잇·방 삭제 — 완료 (규칙 변경 시 콘솔에 다시 게시 필요)
 5. ✅ 배포 설정 (Firebase Hosting + GitHub Actions 자동 배포) — 완료
 
@@ -57,10 +59,9 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - `src/lib/firebase.ts` — Firebase 초기화(.env.local). `VITE_USE_EMULATORS=true`면 로컬 에뮬레이터 연결
 - `src/lib/boardStore.ts` — Firestore 저장소 API(`BoardStore` + `openSession/heartbeat/closeSession/findByCode`, 훅 `useBoards/useBoard/useRoom/usePostits/usePostitCount/useNow`)
 - `src/lib/auth.tsx` — 강사 Google 로그인+admins 확인(`useAuth`). 참여자는 로그인 없음. 에뮬레이터 모드에서만 `window.__emulatorGoogleUser`로 팝업 없이 테스트 로그인 가능
-- `src/lib/image.ts` — 사진 → 1000px JPEG data URL (700,000자 넘으면 품질·크기 단계적 축소). 상한은 `firestore.rules`와 같은 값
 - `firestore.rules` — 보안 규칙 (세션 코드·하트비트 90초 검증, 입력 길이·형식 검증). `tests/firestore.rules.test.mjs`로 검증
 - `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분
-- `src/pages/` — GuestPage(`/`, `/b/:code`), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`)
+- `src/pages/` — GuestPage(`/`, `/b/:code`, `GuestForm`은 보드 설정 미리보기에도 사용), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`, 전체화면 모드 포함)
 - `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠
 - `src/dev/seed.ts` — 개발용 샘플 보드(프로토타입 SEED_POSTITS). `npm run dev`의 보드 목록 하단 버튼으로만 노출
 

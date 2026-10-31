@@ -64,13 +64,9 @@ describe('참여자 (로그인 없음)', () => {
     await seed();
     await assertSucceeds(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit()));
   });
-  test('사진(data URL) 포함 가능, 700,000자 초과는 불가', async () => {
+  test('사진은 받지 않음 (사진 첨부 기능 제거)', async () => {
     await seed();
-    const ok = 'data:image/jpeg;base64,' + 'A'.repeat(690000);
-    const big = 'data:image/jpeg;base64,' + 'A'.repeat(700001);
-    await assertSucceeds(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit({ photoUrl: ok })));
-    await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit({ photoUrl: big })));
-    await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit({ photoUrl: 'https://evil.example/x.png' })));
+    await assertFails(addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit({ photoUrl: 'data:image/jpeg;base64,AAAA' })));
   });
   test('틀린 코드·닫힌 방·하트비트 끊긴 방에는 못 붙임', async () => {
     await seed();
@@ -125,6 +121,9 @@ describe('강사', () => {
     await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { saved: true }));
     await assertFails(updateDoc(doc(db, 'boards', 'b1'), { saved: 'yes' }));
     await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { title: '바뀐 제목' }));
+    await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { prompt: '오늘 가장 기억에 남는 내용은?', placeholder: '한 줄도 좋아요' }));
+    await assertFails(updateDoc(doc(db, 'boards', 'b1'), { prompt: 'x'.repeat(41) }));
+    await assertSucceeds(setDoc(doc(db, 'rooms', '4321'), { boardId: 'b1', ownerUid: HOST, title: '바뀐 제목', subtitle: '', prompt: '질문', placeholder: '', openedAt: serverTimestamp() }));
     await assertSucceeds(setDoc(doc(db, 'rooms', '4321'), { boardId: 'b1', ownerUid: HOST, title: '바뀐 제목', subtitle: '', openedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { session: { code: '4321', openedAt: serverTimestamp(), lastSeen: serverTimestamp() } }));
     await assertSucceeds(updateDoc(doc(db, 'boards', 'b1'), { 'session.lastSeen': serverTimestamp() }));
