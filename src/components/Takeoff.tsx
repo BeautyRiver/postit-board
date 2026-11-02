@@ -15,11 +15,6 @@ export function Takeoff({ board, code, onArrive, onDone }: {
   const done = useEffectEvent(onDone);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      arrive();
-      done();
-      return;
-    }
     const t1 = setTimeout(arrive, 1300);
     const t2 = setTimeout(done, 2000);
     return () => { clearTimeout(t1); clearTimeout(t2); };

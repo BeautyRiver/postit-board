@@ -56,7 +56,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
   - 모든 오버레이는 열릴 때·닫힐 때 애니메이션: 닫기는 `useExitTransition(onClose)` → `.is-closing` 클래스로 퇴장(170ms) 후 언마운트. `Modal`은 children 함수로 `close`를 넘겨 취소·저장 성공도 애니메이션으로 닫힘 (부모의 onSave/onConfirm에서 바로 닫지 말 것)
   - 입장 ease-out 200~300ms·튕김 없음, 퇴장은 더 짧게, 배경과 카드는 같은 곡선. transform·opacity만 애니메이션, `transition: all` 금지
   - 버튼 누름 `scale: .97`(개별 scale 속성), hover 움직임은 `@media (hover: hover)`에서만, 작은 버튼 누름 영역 40px 확보
-  - `prefers-reduced-motion: reduce`면 모든 애니메이션 끔 (닫기도 즉시)
+  - OS '동작 줄이기'(`prefers-reduced-motion`)는 **따르지 않고 항상 재생**. Windows '애니메이션 효과' 끔·원격 데스크톱이면 브라우저가 reduce로 알려 모든 애니메이션이 사라졌던 문제
 
 ## 진행 단계 (design_handoff_postit_board/README.md "권장 작업 순서")
 1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료

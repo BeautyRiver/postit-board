@@ -1108,10 +1108,6 @@ html, body { height: 100dvh; }
 .postit.entering::before {
   animation: tape-on 0.7s ease-out var(--enter-delay, 0s) backwards;
 }
-@media (prefers-reduced-motion: reduce) {
-  .postit.entering, .postit.entering.swaying, .postit.entering::before { animation: none; }
-}
-
 /* QR 카드: 사이트 주소 대신 4자리 입장 코드를 크게 (프로젝터 뒤쪽 자리에서도 보이도록) */
 .qr-card-code-label { font-size: 10px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.05em; margin-top: 2px; }
 .qr-card-code { font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 600; letter-spacing: 0.12em; color: var(--accent); line-height: 1.2; }
@@ -1224,7 +1220,7 @@ button.qr-card { border: 0; font: inherit; color: inherit; cursor: zoom-in; disp
    - 입장·퇴장: ease-out, transform·opacity만, 모달류 200~300ms, 퇴장은 약 20% 짧게(170ms, motion.ts EXIT_MS)
    - 함께 움직이는 배경과 카드는 같은 길이·곡선
    - 버튼 누름: scale .97 (개별 scale 속성 → 기존 transform과 충돌 없음)
-   - 동작 줄이기 설정이면 모든 애니메이션 끔
+   - OS '동작 줄이기' 설정과 관계없이 항상 재생 (맨 아래 참고)
    =================================================================== */
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);        /* ease-out-quint */
@@ -1272,12 +1268,13 @@ html, body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grays
 .board-row { animation: m-rise-in 280ms var(--ease-out) calc(var(--i, 0) * 40ms) backwards; }
 
 /* 참여자 화면: 코드 입력 ↔ 의견 작성 전환 시 내용이 위에서부터 차례로 (약 50ms 간격) */
-.guest-form.stagger-in > :not(.sent-toast) { animation: m-rise-in 300ms var(--ease-out) backwards; }
-.guest-form.stagger-in > :nth-child(2) { animation-delay: 50ms; }
-.guest-form.stagger-in > :nth-child(3) { animation-delay: 100ms; }
-.guest-form.stagger-in > :nth-child(4) { animation-delay: 150ms; }
-.guest-form.stagger-in > :nth-child(5) { animation-delay: 200ms; }
-.guest-form.stagger-in > :nth-child(n+6) { animation-delay: 250ms; }
+/* 지연은 변수(--stagger)로만 넘김 — animation-delay를 직접 쓰면 나중에 나타나는 제출 완료 화면·오류 문구까지 늦어짐 */
+.guest-form.stagger-in > :not(.sent-toast, .submit-error) { animation: m-rise-in 300ms var(--ease-out) var(--stagger, 0ms) backwards; }
+.guest-form.stagger-in > :nth-child(2) { --stagger: 50ms; }
+.guest-form.stagger-in > :nth-child(3) { --stagger: 100ms; }
+.guest-form.stagger-in > :nth-child(4) { --stagger: 150ms; }
+.guest-form.stagger-in > :nth-child(5) { --stagger: 200ms; }
+.guest-form.stagger-in > :nth-child(n+6) { --stagger: 250ms; }
 
 /* 오류·안내 문구는 살짝 내려오며 나타남 */
 .join-error, .gate-error, .gate-uid { animation: m-drop-in 180ms var(--ease-out); }
@@ -1308,14 +1305,5 @@ button.qr-card:active { scale: .97; }
 .icon-btn::after, .wall-options-close::after { content: ""; position: absolute; inset: -4px; }
 .color-swatch::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
 
-/* 동작 줄이기 설정: 장식 애니메이션·전환 모두 끔 (요소별 규칙을 이기기 위해 !important) */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 1ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-    scroll-behavior: auto !important;
-  }
-  .cloud, .contrail { animation: none !important; }
-}
+/* OS의 '동작 줄이기'(prefers-reduced-motion)는 따르지 않는다 — 강의실·발표 PC는 Windows '애니메이션 효과'가
+   꺼져 있거나 원격 데스크톱이라 이 값이 켜진 경우가 많아, 따르면 모든 애니메이션이 사라진다 */
