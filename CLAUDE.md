@@ -1,14 +1,14 @@
 # postit-board
 
 교육·연수용 실시간 포스트잇 피드백 보드 웹앱.
-디자인 레퍼런스는 `design_handoff_postit_board/` (README.md + prototype/)에 있다.
+처음 디자인의 출발점은 `design_handoff_postit_board/` (README.md + prototype/)에 있다. 지금은 따라야 할 기준이 아니라 참고 자료.
 목표 스택: Vite + React 19 + TypeScript + React Router + Firebase(Hosting, Firestore, Auth). **Storage는 사용하지 않음**(아래 결정 사항).
 Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 
 ## 작업 규칙
 - 대화와 커밋 메시지는 한국어
-- 디자인 수치(색상·간격·폰트·애니메이션 키프레임)는 prototype HTML의 `<style>` 값을 그대로 사용. 임의로 "개선"하지 말 것
-- Tailwind 등 새 스타일 체계 도입 금지. 프로토타입 CSS를 추출해서 사용
+- 디자인(색상·간격·폰트·애니메이션)은 프로토타입 수치에 얽매이지 않고 더 좋게 다듬어도 된다 (사용자 결정으로 '프로토타입 그대로' 규칙 폐지)
+- 스타일은 `src/styles/global.css`(일반 CSS)로 관리. Tailwind 등 다른 스타일 체계를 섞지 말 것
 - iOS 프레임, Tweaks 패널, URL 바, PIN 1212, 가짜 QR은 이식하지 않음
 - 저장소 API(list/create/update/remove/addPostit, useBoards) 형태는 유지하고 구현만 교체 (`like`는 결정에 따라 제거)
 - 단계 하나 끝날 때마다 `npm run build` 통과 확인 후 커밋
@@ -64,7 +64,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - `src/lib/boardStore.ts` — Firestore 저장소 API(`BoardStore` + `openSession/heartbeat/closeSession/findByCode`, 훅 `useBoards/useBoard/useRoom/usePostits/usePostitCount/useNow`)
 - `src/lib/auth.tsx` — 강사 Google 로그인+admins 확인(`useAuth`). 참여자는 로그인 없음. 에뮬레이터 모드에서만 `window.__emulatorGoogleUser`로 팝업 없이 테스트 로그인 가능
 - `firestore.rules` — 보안 규칙 (세션 코드·하트비트 5분 검증, 입력 길이·형식 검증). `tests/firestore.rules.test.mjs`로 검증
-- `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분
+- `src/styles/global.css` — 전체 스타일. 앞부분은 프로토타입 `<style>`에서 가져온 것, 맨 아래 "실제 앱 추가분"은 새로 작성한 부분
 - `src/pages/` — GuestPage(`/`, `/b/:code`, `GuestForm`은 보드 설정 미리보기에도 사용), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`, 전체화면 모드 포함)
 - `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠
 - `src/dev/seed.ts` — 개발용 샘플 보드(프로토타입 SEED_POSTITS). `npm run dev`의 보드 목록 하단 버튼으로만 노출

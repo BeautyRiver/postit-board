@@ -1,5 +1,5 @@
-/* 프로토타입(design_handoff_postit_board/prototype/의견을 나누는 포스트잇.html)의 <style>에서 추출.
-   수치는 그대로 유지. 제거된 기능(좋아요·답변·PIN·URL 바·뷰 토글·iOS 프레임·배경 테마 선택)의 스타일만 뺐다. */
+/* 프로토타입(design_handoff_postit_board/prototype/의견을 나누는 포스트잇.html)의 <style>에서 시작한 스타일.
+   제거된 기능(좋아요·답변·PIN·URL 바·뷰 토글·iOS 프레임·배경 테마 선택)의 스타일은 뺐다. 수치는 필요하면 자유롭게 조정해도 된다. */
 :root {
   --ink: #1a2438;
   --ink-soft: #4a5570;
