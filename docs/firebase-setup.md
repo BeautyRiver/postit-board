@@ -72,15 +72,21 @@
 5. 보안 규칙: **프로덕션 모드에서 시작**(Start in production mode) 선택 → **만들기**
    - 처음엔 모든 접근이 막혀 있습니다. 아래 **4-1**에서 앱용 규칙을 붙여넣어야 앱이 동작합니다.
 
-### 4-1. 보안 규칙 게시 (규칙 파일이 바뀔 때마다)
+### 4-1. 보안 규칙 게시 — 자동 (main에 푸시하면 GitHub Actions가 테스트 후 게시)
 
-1. 저장소의 **`firestore.rules`** 파일을 열어 **내용 전체를 복사**
-   (GitHub 저장소 페이지에서 `firestore.rules` 클릭 → 오른쪽 위 복사 버튼)
-2. 콘솔 **Firestore Database → 규칙(Rules)** 탭
-3. 기존 내용을 **모두 지우고** 붙여넣기 → **게시(Publish)**
-4. 1분 정도 지나면 적용됩니다
+`firestore.rules`가 바뀌어도 **콘솔에 붙여넣을 필요가 없습니다.** 자동 배포가 규칙 테스트(14개)를 통과하면 사이트와 함께 규칙도 게시합니다.
 
-> Firebase CLI를 설치했다면 저장소 폴더에서 `firebase deploy --only firestore:rules` 한 줄로도 됩니다.
+**처음 한 번만: 배포용 서비스 계정에 권한 2개 추가**
+1. https://console.cloud.google.com/iam-admin/iam?project=postit-board-74a67 접속 (Firebase와 같은 Google 계정)
+2. 목록에서 이름이 **`github-action-`** 으로 시작하는 계정(…`@postit-board-74a67.iam.gserviceaccount.com`) 줄의 **연필(수정)** 아이콘
+   - 정확한 주소는 GitHub Actions 실행 기록의 "Deploy Firestore rules" 단계에 `배포 서비스 계정: …` 으로 찍힙니다
+3. **다른 역할 추가** → `Firebase Rules Admin` 선택
+4. **다른 역할 추가** → `Service Usage Consumer` 선택
+5. **저장** → 1~2분 뒤 GitHub Actions에서 실패한 실행을 다시 실행(또는 다음 푸시)
+
+**자동 게시가 실패할 때 손으로 게시하는 방법 (예비)**
+1. 저장소의 **`firestore.rules`** 내용 전체 복사 (GitHub에서 파일 열기 → 오른쪽 위 복사 버튼)
+2. 콘솔 **Firestore Database → 규칙(Rules)** 탭 → 기존 내용을 모두 지우고 붙여넣기 → **게시**
 
 > **Storage(사진 저장소)는 만들지 마세요.** 만들려고 하면 요금제 업그레이드(카드 등록)를 요구합니다.
 

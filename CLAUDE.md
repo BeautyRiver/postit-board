@@ -56,7 +56,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료
 2. ✅ Firebase 연결 (Auth, Firestore onSnapshot) — 완료
 3. ✅ 사진 첨부 — 구현 후 사용자 결정으로 제거
-4. ✅ 보안 규칙(`firestore.rules`, 테스트 `tests/`) · 보드 삭제 시 포스트잇·방 삭제 — 완료 (규칙 변경 시 콘솔에 다시 게시 필요)
+4. ✅ 보안 규칙(`firestore.rules`, 테스트 `tests/`) · 보드 삭제 시 포스트잇·방 삭제 — 완료. 규칙은 GitHub Actions가 테스트 후 자동 게시
 5. ✅ 배포 설정 (Firebase Hosting + GitHub Actions 자동 배포) — 완료
 
 ## 코드 구조
@@ -72,6 +72,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 ## 배포
 - Firebase 프로젝트 ID: `postit-board-74a67` → https://postit-board-74a67.web.app
 - `main` 푸시 시 GitHub Actions(`.github/workflows/firebase-hosting-merge.yml`)가 빌드·배포. 빌드용 설정값은 Secret `ENV_LOCAL`(= `.env.local` 전체 내용)
+- 같은 워크플로가 `firestore.rules` 테스트(에뮬레이터, 14개) → 사이트 배포 → **규칙 자동 게시**(`firebase deploy --only firestore:rules`)까지 수행. 규칙 테스트가 실패하면 아무것도 배포하지 않음. 배포용 서비스 계정에 `Firebase Rules Admin`·`Service Usage Consumer` 역할 필요(docs/firebase-setup.md 4-1)
 - 배포 실패 여부는 푸시 후 Actions 실행 결과로 확인할 것
 
 ## 명령
