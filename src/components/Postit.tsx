@@ -4,9 +4,10 @@ import type { Layout } from '../lib/layout';
 import type { Postit as PostitData } from '../lib/types';
 
 // 벽에 붙는 포스트잇 한 장
-export function Postit({ p, layout, enterDelay, onClick, swayEnabled }: {
+export function Postit({ p, layout, scale = 1, enterDelay, onClick, swayEnabled }: {
   p: PostitData;
   layout: Layout;
+  scale?: number;       // 포스트잇 크기 배율 (옵션). 중심 기준으로 커지므로 위치를 보정해 칸의 왼쪽 위에 맞춘다
   enterDelay: number;   // 부착 애니메이션 지연(초) — 동시에 여러 장이 붙을 때 순차 연출
   onClick: (p: PostitData) => void;
   swayEnabled: boolean;
@@ -16,7 +17,8 @@ export function Postit({ p, layout, enterDelay, onClick, swayEnabled }: {
       className={`postit entering ${swayEnabled ? 'swaying' : ''}`}
       style={{
         background: colorValue(p.color),
-        translate: `${layout.x}px ${layout.y}px`,
+        translate: `${layout.x + 100 * (scale - 1)}px ${layout.y + 100 * (scale - 1)}px`,
+        scale: String(scale),
         rotate: `${layout.rot}deg`,
         '--sway-rot': `${layout.swayRotOffset.toFixed(2)}deg`,
         '--sway-delay': `${layout.swayDelay}s`,
