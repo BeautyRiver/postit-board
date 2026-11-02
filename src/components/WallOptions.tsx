@@ -3,6 +3,7 @@ import {
   FONT_OPTIONS, GAP_OPTIONS, PRESENT_OPTIONS, SIZE_OPTIONS,
   type WallSettings,
 } from '../lib/wallSettings';
+import { useExitTransition } from '../lib/motion';
 import { IconEdit } from './Icons';
 
 // 벽 화면 오른쪽 위 '옵션' 패널 — 바꾸는 즉시 벽에 반영, 이 PC 브라우저에 저장
@@ -13,11 +14,12 @@ export function WallOptions({ settings, onChange, onReset, onEditBoard, onClose 
   onEditBoard: () => void;
   onClose: () => void;
 }) {
+  const { closing, close } = useExitTransition(onClose);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+  }, [close]);
 
   function row<K extends keyof WallSettings>(label: string, field: K, options: readonly { id: WallSettings[K]; label: string }[]) {
     return (
@@ -36,11 +38,11 @@ export function WallOptions({ settings, onChange, onReset, onEditBoard, onClose 
 
   return (
     <>
-      <div className="wall-options-backdrop" onClick={onClose} />
-      <div className="wall-options" role="dialog" aria-label="화면 옵션">
+      <div className="wall-options-backdrop" onClick={close} />
+      <div className={`wall-options ${closing ? 'is-closing' : ''}`} role="dialog" aria-label="화면 옵션">
         <div className="wall-options-head">
           <div className="wall-options-title">화면 옵션</div>
-          <button className="wall-options-close" onClick={onClose} aria-label="닫기">×</button>
+          <button className="wall-options-close" onClick={close} aria-label="닫기">×</button>
         </div>
         {row('포스트잇 크기', 'size', SIZE_OPTIONS)}
         {row('글씨 크기', 'font', FONT_OPTIONS)}

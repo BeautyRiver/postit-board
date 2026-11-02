@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { BoardForm } from '../components/BoardForm';
 import { Clouds } from '../components/Clouds';
@@ -11,8 +11,9 @@ import { BoardStore, useBoards, useNow, usePostitCount } from '../lib/boardStore
 import { UNSAVED_BOARD_TTL_MS, errorMessage, fmtDate, isSessionActive } from '../lib/constants';
 import type { Board } from '../lib/types';
 
-function BoardRow({ b, now, onOpen, onEdit, onDelete }: {
+function BoardRow({ b, index, now, onOpen, onEdit, onDelete }: {
   b: Board;
+  index: number;   // 순차 등장 애니메이션 순서
   now: number;
   onOpen: () => void;
   onEdit: () => void;
@@ -20,7 +21,7 @@ function BoardRow({ b, now, onOpen, onEdit, onDelete }: {
 }) {
   const count = usePostitCount(b.id);
   return (
-    <li className="board-row" onClick={onOpen}>
+    <li className="board-row" style={{ '--i': Math.min(index, 10) } as CSSProperties} onClick={onOpen}>
       <div className="board-row-main">
         <div className="board-row-title">{b.title}</div>
         <div className="board-row-meta">{b.subtitle ? b.subtitle + ' · ' : ''}강사 {b.instructor}</div>
@@ -94,8 +95,8 @@ export function BoardLobby() {
 
         {boards === undefined ? null : sorted.length > 0 ? (
           <ul className="board-list">
-            {sorted.map(b => (
-              <BoardRow key={b.id} b={b} now={now}
+            {sorted.map((b, i) => (
+              <BoardRow key={b.id} b={b} index={i} now={now}
                 onOpen={() => open(b)}
                 onEdit={() => setEditing(b)}
                 onDelete={() => setDeleting(b)} />
@@ -118,15 +119,15 @@ export function BoardLobby() {
 
       {creating && (
         <BoardForm onClose={() => setCreating(false)}
-          onSave={async v => { const b = await BoardStore.create(v); setCreating(false); await open(b); }} />
+          onSave={async v => { const b = await BoardStore.create(v); await open(b); }} />
       )}
       {editing && (
         <BoardForm initial={editing} onClose={() => setEditing(null)}
-          onSave={async v => { await BoardStore.update(editing.id, v); setEditing(null); }} />
+          onSave={async v => { await BoardStore.update(editing.id, v); }} />
       )}
       {deleting && (
         <DeleteBoardConfirm board={deleting} onClose={() => setDeleting(null)}
-          onConfirm={async () => { await BoardStore.remove(deleting.id); setDeleting(null); }} />
+          onConfirm={async () => { await BoardStore.remove(deleting.id); }} />
       )}
     </div>
   );

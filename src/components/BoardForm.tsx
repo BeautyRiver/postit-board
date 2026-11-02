@@ -19,7 +19,7 @@ export function BoardForm({ initial, onSave, onClose }: {
   const [saving, setSaving] = useState(false);
   const valid = !!(title.trim() && instructor.trim());
 
-  async function submit(e: FormEvent) {
+  async function submit(e: FormEvent, close: () => void) {
     e.preventDefault();
     if (!valid || saving) return;
     setSaving(true);
@@ -31,6 +31,7 @@ export function BoardForm({ initial, onSave, onClose }: {
         prompt: p === DEFAULT_PROMPT ? '' : p,
         placeholder: ph === DEFAULT_PLACEHOLDER ? '' : ph,
       });
+      close();   // 저장되면 애니메이션과 함께 닫기
     } catch (err) {
       alert(errorMessage(err, '저장하지 못했어요'));
       setSaving(false);
@@ -44,9 +45,9 @@ export function BoardForm({ initial, onSave, onClose }: {
   };
 
   return (
-    <Modal onClose={onClose} wide>
+    <Modal onClose={onClose} wide>{close => (
       <div className="board-form-layout">
-        <form onSubmit={submit} className="modal-form">
+        <form onSubmit={e => submit(e, close)} className="modal-form">
           <h2 className="modal-title">{initial ? '보드 정보 수정' : '새 보드 만들기'}</h2>
           <label className="field">
             <span>교육명</span>
@@ -77,7 +78,7 @@ export function BoardForm({ initial, onSave, onClose }: {
           </label>
 
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>취소</button>
+            <button type="button" className="btn-ghost" onClick={close}>취소</button>
             <button type="submit" className="btn-primary" disabled={!valid || saving}>{initial ? '저장' : '만들기'}</button>
           </div>
         </form>
@@ -91,6 +92,6 @@ export function BoardForm({ initial, onSave, onClose }: {
           </div>
         </div>
       </div>
-    </Modal>
+    )}</Modal>
   );
 }

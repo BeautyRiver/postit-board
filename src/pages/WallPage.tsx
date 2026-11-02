@@ -384,7 +384,7 @@ export function WallPage() {
         <FocusView selected={selected} onClose={() => setSelected(null)} />
       )}
       {leaveTarget && (
-        <Modal onClose={() => !leaving && setLeaveTarget(null)}>
+        <Modal onClose={() => setLeaveTarget(null)}>{close => (
           <div className="modal-form">
             <div className="danger-icon">!</div>
             <h2 className="modal-title">보드를 저장하지 않았어요</h2>
@@ -393,16 +393,16 @@ export function WallPage() {
               <strong> 삭제</strong>됩니다. 나가시겠습니까?
             </p>
             <div className="modal-actions stack">
-              <button className="btn-ghost" onClick={() => setLeaveTarget(null)} disabled={leaving}>취소</button>
+              <button className="btn-ghost" onClick={close} disabled={leaving}>취소</button>
               <button className="btn-danger" onClick={() => exit(leaveTarget, 'discard')} disabled={leaving}>저장 안 하고 나가기</button>
               <button className="btn-primary" autoFocus onClick={() => exit(leaveTarget, 'save')} disabled={leaving}>저장하고 나가기</button>
             </div>
           </div>
-        </Modal>
+        )}</Modal>
       )}
       {editing && (
         <BoardForm initial={board} onClose={() => setEditing(false)}
-          onSave={async v => { await BoardStore.update(board.id, v); setEditing(false); }} />
+          onSave={async v => { await BoardStore.update(board.id, v); }} />
       )}
     </div>
   );

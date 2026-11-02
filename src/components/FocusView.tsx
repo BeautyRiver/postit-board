@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { categoryAccent, categoryLabel, colorValue, timeAgo } from '../lib/constants';
+import { useExitTransition } from '../lib/motion';
 import type { Postit } from '../lib/types';
 
 // 포스트잇 클릭 시 프로젝터용 확대 보기
@@ -8,23 +9,25 @@ export function FocusView({ selected, onClose }: { selected: Postit; onClose: ()
   // mode: 'postit' = 글이 메인 / 'photo' = 사진이 메인
   const [mode, setMode] = useState<'postit' | 'photo'>('postit');
   const hasPhoto = !!selected.photoUrl;
+  const { closing, close } = useExitTransition(onClose);   // X·배경·ESC 모두 퇴장 애니메이션 후 닫힘
 
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+  }, [close]);
 
+  const state = closing ? 'is-closing' : '';
   return (
-    <div className="focus-backdrop" onClick={onClose}>
-      <button className="focus-close" onClick={onClose} aria-label="닫기">×</button>
+    <div className={`focus-backdrop ${state}`} onClick={close}>
+      <button className="focus-close" onClick={close} aria-label="닫기">×</button>
       <div className="focus-hint">
         {hasPhoto
           ? '우측 상단을 클릭해서 사진과 글을 전환해보세요 · 배경 클릭으로 닫기'
           : '배경 클릭으로 닫기'}
       </div>
 
-      <div className="focus-stage" onClick={e => e.stopPropagation()}>
+      <div className={`focus-stage ${state}`} onClick={e => e.stopPropagation()}>
         {/* 포스트잇 슬롯 */}
         <div
           className={`swap-slot ${mode === 'postit' ? 'slot-main' : 'slot-thumb'}`}

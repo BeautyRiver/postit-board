@@ -16,11 +16,12 @@ export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
   const count = usePostitCount(board.id);
   const ok = typed.trim() === CONFIRM_WORD && !busy;
 
-  async function confirm() {
+  async function confirm(close: () => void) {
     if (!ok) return;
     setBusy(true);
     try {
       await onConfirm();
+      close();   // 삭제되면 애니메이션과 함께 닫기
     } catch (err) {
       alert(errorMessage(err, '삭제하지 못했어요'));
       setBusy(false);
@@ -28,7 +29,7 @@ export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
   }
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose}>{close => (
       <div className="modal-form">
         <div className="danger-icon">!</div>
         <h2 className="modal-title">보드를 삭제할까요?</h2>
@@ -39,13 +40,13 @@ export function DeleteBoardConfirm({ board, onConfirm, onClose }: {
         <label className="field">
           <span>확인을 위해 <code className="board-code">{CONFIRM_WORD}</code>를 입력하세요</span>
           <input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={CONFIRM_WORD} maxLength={4}
-            onKeyDown={e => { if (e.key === 'Enter') confirm(); }} />
+            onKeyDown={e => { if (e.key === 'Enter') confirm(close); }} />
         </label>
         <div className="modal-actions">
-          <button className="btn-ghost" onClick={onClose}>취소</button>
-          <button className="btn-danger" disabled={!ok} onClick={confirm}>영구 삭제</button>
+          <button className="btn-ghost" onClick={close}>취소</button>
+          <button className="btn-danger" disabled={!ok} onClick={() => confirm(close)}>영구 삭제</button>
         </div>
       </div>
-    </Modal>
+    )}</Modal>
   );
 }

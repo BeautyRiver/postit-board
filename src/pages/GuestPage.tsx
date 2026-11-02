@@ -53,7 +53,7 @@ function GuestJoin({ code, notice, onJoin }: {
   }
 
   return (
-    <form className="guest-form" onSubmit={submit}>
+    <form className="guest-form stagger-in" onSubmit={submit}>
       <div className="guest-header">
         <h1>입장 코드를 입력하세요</h1>
         <p>강사님 화면에 보이는 4자리 숫자예요</p>
@@ -134,7 +134,7 @@ export function GuestForm({ room, onClosed, preview = false }: { room: RoomInfo;
   const canSubmit = !!body.trim() && !sending;
 
   return (
-    <div className="guest-form">
+    <div className="guest-form stagger-in">
       <div className="guest-header">
         <h1>{room.prompt}</h1>
         <p>{room.subtitle ? room.subtitle + ' · ' : ''}{room.title}</p>
