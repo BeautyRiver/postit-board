@@ -31,7 +31,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - **입장 코드 = 4자리 숫자 세션 코드** (보드 고정 코드 없음)
   - QR은 사이트 첫 화면(`/`)으로만 연결 → 참여자가 벽에 표시된 4자리 코드를 입력해야 입장 (`/b/:code`)
   - 강사가 보드 목록에서 벽을 열 때마다 새 코드 발급(직전 코드·열려 있는 다른 방 코드와 겹치지 않게). 벽 새로고침은 코드 유지
-  - 벽은 30초마다 하트비트(`lastSeen` 갱신). "보드 목록"/"로그아웃"으로 나가면 즉시 닫힘, 탭을 그냥 닫으면 180초 후 자동 닫힘(`SESSION_TTL_MS` = 규칙 `roomIsOpen`). 하트비트가 끊겼다 돌아와도(PPT 전환·절전·PC 시계 오차) 그 코드를 다른 방이 안 가져갔으면 **같은 코드로 다시 열림**, 화면이 다시 보이면 즉시 하트비트
+  - 벽은 30초마다 하트비트(`lastSeen` 갱신). "보드 목록"/"로그아웃"으로 나가면 즉시 닫힘, 탭을 그냥 닫으면 5분 후 자동 닫힘(사용자 결정)(`SESSION_TTL_MS` = 규칙 `roomIsOpen`). 하트비트가 끊겼다 돌아와도(PPT 전환·절전·PC 시계 오차) 그 코드를 다른 방이 안 가져갔으면 **같은 코드로 다시 열림**, 화면이 다시 보이면 즉시 하트비트
   - 닫힌 방 코드 입력 → "활성화된 방이 아니에요" 경고. 작성 중 방이 닫히면 코드 입력 화면으로 돌아가고 쓰던 글은 sessionStorage에 보관
   - 포스트잇은 열린 방의 현재 코드로만 붙일 수 있음(`addPostit(boardId, code, item)`). Firestore에서는 보안 규칙으로 강제할 것
   - Firestore 구조: `boards/{id}.session = {code, openedAt, lastSeen}` + `rooms/{code} → {boardId, ownerUid, title, subtitle, openedAt}`(코드 조회·중복 방지, 트랜잭션)
@@ -59,7 +59,7 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
 - `src/lib/firebase.ts` — Firebase 초기화(.env.local). `VITE_USE_EMULATORS=true`면 로컬 에뮬레이터 연결
 - `src/lib/boardStore.ts` — Firestore 저장소 API(`BoardStore` + `openSession/heartbeat/closeSession/findByCode`, 훅 `useBoards/useBoard/useRoom/usePostits/usePostitCount/useNow`)
 - `src/lib/auth.tsx` — 강사 Google 로그인+admins 확인(`useAuth`). 참여자는 로그인 없음. 에뮬레이터 모드에서만 `window.__emulatorGoogleUser`로 팝업 없이 테스트 로그인 가능
-- `firestore.rules` — 보안 규칙 (세션 코드·하트비트 180초 검증, 입력 길이·형식 검증). `tests/firestore.rules.test.mjs`로 검증
+- `firestore.rules` — 보안 규칙 (세션 코드·하트비트 5분 검증, 입력 길이·형식 검증). `tests/firestore.rules.test.mjs`로 검증
 - `src/styles/global.css` — 프로토타입 `<style>` 추출본. 맨 아래 "실제 앱 추가분" 섹션만 새로 작성한 부분
 - `src/pages/` — GuestPage(`/`, `/b/:code`, `GuestForm`은 보드 설정 미리보기에도 사용), HostGate·BoardLobby(`/host`), WallPage(`/host/:boardId`, 전체화면 모드 포함)
 - `src/components/TakeoffProvider.tsx` — 이륙 애니메이션은 라우트 전환을 가로지르므로 앱 최상단에 둠

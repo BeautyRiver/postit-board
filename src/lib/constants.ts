@@ -23,8 +23,8 @@ export const POSTIT_COLORS: { id: PostitColor; value: string; label: string }[] 
 export const CODE_LENGTH = 4;
 export const HEARTBEAT_MS = 30_000;     // 벽 화면이 살아 있음을 알리는 주기
 // 이 시간 동안 하트비트가 없으면 방이 닫힌 것으로 처리 (탭 닫기 대비). firestore.rules의 roomIsOpen과 같은 값.
-// 강사가 PPT 등으로 화면을 바꾸면 브라우저가 숨은 탭의 타이머를 1분 간격 이상으로 늦추므로 넉넉하게 3분
-export const SESSION_TTL_MS = 180_000;
+// 강사가 PPT 등으로 화면을 바꾸면 브라우저가 숨은 탭의 타이머를 1분 간격 이상으로 늦추므로 넉넉하게 5분
+export const SESSION_TTL_MS = 300_000;
 
 // 저장하지 않은 채 남겨진 보드(탭을 그냥 닫은 경우 등)를 보드 목록에서 자동 삭제하기까지의 시간
 export const UNSAVED_BOARD_TTL_MS = 24 * 60 * 60 * 1000;
