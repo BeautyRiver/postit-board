@@ -1298,7 +1298,7 @@ html, body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grays
 button.qr-card:active { scale: .97; }
 
 /* hover 움직임(포스트잇 들림, QR 카드, 닫기 버튼 회전)은 마우스 있는 기기에서만 — 위쪽 원래 규칙을 @media (hover: hover)로 감쌈 */
-.postit { transition: transform .25s var(--ease-out), box-shadow .25s ease; }
+.postit { transition: transform .25s var(--ease-out), box-shadow .25s ease, translate .5s var(--ease-in-out); }   /* translate: 삭제 후 빈자리로 미끄러져 들어옴 */
 
 /* 작은 버튼의 누를 수 있는 영역을 40px 이상으로 (보이는 크기는 그대로) */
 .icon-btn, .wall-options-close, .color-swatch { position: relative; }
@@ -1307,3 +1307,87 @@ button.qr-card:active { scale: .97; }
 
 /* OS의 '동작 줄이기'(prefers-reduced-motion)는 따르지 않는다 — 강의실·발표 PC는 Windows '애니메이션 효과'가
    꺼져 있거나 원격 데스크톱이라 이 값이 켜진 경우가 많아, 따르면 모든 애니메이션이 사라진다 */
+
+/* ===================================================================
+   포스트잇 삭제 (강사 확대 보기) — 하단 작은 유리 버튼 → 유리 확인 카드 → 삭제 → 벽에서 떼어짐
+   =================================================================== */
+/* 확대 카드가 하단 버튼과 겹치지 않게 (위아래 약 95px 여유) */
+.focus-stage { max-height: min(85vh, calc(100vh - 190px)); }
+
+.focus-actions {
+  position: absolute; left: 0; right: 0; bottom: 28px;
+  display: flex; justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;          /* 빈 곳 클릭은 배경 클릭(닫기)으로 */
+  animation: m-rise-in 300ms var(--ease-out) 120ms backwards;   /* 확대 카드 다음에 살짝 늦게 */
+}
+.focus-actions > * { pointer-events: auto; }
+
+/* 유리 재질: 반투명 + 뒤 배경 흐림 + 위쪽 얇은 하이라이트 */
+.focus-delete, .focus-confirm {
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.07);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 10px 30px -12px rgba(0,0,0,0.55);
+}
+.focus-delete {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 14px 0 12px;
+  border-radius: 999px;
+  color: rgba(255,255,255,0.58);
+  font: inherit; font-size: 12.5px; font-weight: 500; letter-spacing: 0.01em;
+  cursor: pointer;
+  animation: m-fade-in 160ms var(--ease-out);
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, scale .12s ease-out;
+}
+.focus-delete svg { width: 14px; height: 14px; }
+.focus-delete::after { content: ""; position: absolute; inset: -5px; border-radius: 999px; }   /* 누름 영역 44px */
+@media (hover: hover) {
+  .focus-delete:hover { color: #ffd4d4; background: rgba(255,90,90,0.14); border-color: rgba(255,130,130,0.32); }
+}
+
+.focus-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px;
+  max-width: 100%;
+  padding: 12px 12px 12px 20px;
+  border-radius: 20px;
+  color: #fff;
+  cursor: default;
+  transform-origin: 50% 100%;
+  animation: m-pop-in 200ms var(--ease-out);
+}
+.focus-confirm-text { display: flex; flex-direction: column; gap: 2px; }
+.focus-confirm-text strong { font-size: 14px; font-weight: 700; }
+.focus-confirm-text span { font-size: 12px; color: rgba(255,255,255,0.6); }
+.focus-confirm-buttons { display: flex; gap: 8px; margin-left: auto; }
+.glass-btn {
+  height: 36px; padding: 0 16px;
+  border-radius: 8px;            /* 카드 20 − 여백 12 */
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background-color .2s ease, opacity .2s ease, scale .12s ease-out;
+}
+.glass-btn.danger { background: rgba(239,68,68,0.88); border-color: rgba(255,150,150,0.45); }
+@media (hover: hover) {
+  .glass-btn:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+  .glass-btn.danger:hover:not(:disabled) { background: rgb(239,68,68); }
+}
+.glass-btn:disabled { opacity: 0.6; cursor: default; }
+.focus-delete:active, .glass-btn:active:not(:disabled) { scale: .97; transition-duration: .08s; }
+.focus-delete:focus-visible, .glass-btn:focus-visible { outline: 2px solid rgba(255,255,255,0.75); outline-offset: 2px; }
+.focus-confirm-error { flex-basis: 100%; font-size: 12px; color: #ffb4b4; animation: m-drop-in 180ms var(--ease-out); }
+
+/* 벽에서 떼어짐: 살짝 들렸다가 기울며 사라짐 (끝나면 WallPage가 목록에서 빼고, 나머지가 빈자리로 이동) */
+@keyframes peel-off {
+  0%   { transform: none; opacity: 1; box-shadow: var(--shadow-postit); }
+  30%  { transform: translateY(-8px) scale(1.04) rotate(-2deg); opacity: 1;
+         box-shadow: 0 26px 40px -16px rgba(30,40,70,0.45), 0 8px 12px rgba(30,40,70,0.18); }
+  100% { transform: translateY(-30px) scale(0.92) rotate(-7deg); opacity: 0;
+         box-shadow: 0 26px 40px -16px rgba(30,40,70,0), 0 8px 12px rgba(30,40,70,0); }
+}
+.postit.leaving { animation: peel-off 450ms var(--ease-out) forwards; pointer-events: none; }

@@ -1,21 +1,53 @@
 import { useEffect, useState } from 'react';
-import { categoryAccent, categoryLabel, colorValue, timeAgo } from '../lib/constants';
+import { categoryAccent, categoryLabel, colorValue, errorMessage, timeAgo } from '../lib/constants';
 import { useExitTransition } from '../lib/motion';
 import type { Postit } from '../lib/types';
+import { IconTrash } from './Icons';
 
 // 포스트잇 클릭 시 프로젝터용 확대 보기
 // 사진이 있으면 우상단 썸네일 ↔ 메인 전환 (transform만 애니메이트하는 shared-element 방식, CSS .swap-slot)
-export function FocusView({ selected, onClose }: { selected: Postit; onClose: () => void }) {
+// onDelete가 있으면(강사 벽) 하단에 작은 유리 버튼 "포스트잇 삭제" → 확인 → 삭제 후 닫힘
+export function FocusView({ selected, onClose, onDelete }: {
+  selected: Postit;
+  onClose: () => void;
+  onDelete?: () => Promise<void>;
+}) {
   // mode: 'postit' = 글이 메인 / 'photo' = 사진이 메인
   const [mode, setMode] = useState<'postit' | 'photo'>('postit');
   const hasPhoto = !!selected.photoUrl;
   const { closing, close } = useExitTransition(onClose);   // X·배경·ESC 모두 퇴장 애니메이션 후 닫힘
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  function cancelDelete() {
+    if (deleting) return;
+    setConfirming(false);
+    setDeleteError(null);
+  }
+  async function confirmDelete() {
+    if (!onDelete || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDelete();
+      close();   // 닫힌 뒤 벽의 포스트잇이 떼어지는 애니메이션 (WallPage)
+    } catch (err) {
+      setDeleteError(errorMessage(err, '삭제하지 못했어요. 다시 시도해 주세요.'));
+      setDeleting(false);
+    }
+  }
+
+  // ESC: 삭제 확인 중이면 확인만 취소, 아니면 닫기
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const k = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (confirming) cancelDelete();
+      else close();
+    };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [close]);
+  });
 
   const state = closing ? 'is-closing' : '';
   return (
@@ -66,6 +98,31 @@ export function FocusView({ selected, onClose }: { selected: Postit; onClose: ()
           </div>
         )}
       </div>
+
+      {onDelete && (
+        <div className="focus-actions">
+          {confirming ? (
+            <div className="focus-confirm" role="alertdialog" aria-labelledby="focus-confirm-title" onClick={e => e.stopPropagation()}>
+              <div className="focus-confirm-text">
+                <strong id="focus-confirm-title">이 포스트잇을 삭제할까요?</strong>
+                <span>벽에서 바로 떼어지고 되돌릴 수 없어요</span>
+              </div>
+              <div className="focus-confirm-buttons">
+                <button className="glass-btn" onClick={cancelDelete} disabled={deleting} autoFocus>취소</button>
+                <button className="glass-btn danger" onClick={confirmDelete} disabled={deleting}>
+                  {deleting ? '삭제 중…' : '삭제'}
+                </button>
+              </div>
+              {deleteError && <div className="focus-confirm-error" role="alert">{deleteError}</div>}
+            </div>
+          ) : (
+            <button className="focus-delete" onClick={e => { e.stopPropagation(); setConfirming(true); }}>
+              <IconTrash />
+              포스트잇 삭제
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { BoardForm } from '../components/BoardForm';
 import { Clouds } from '../components/Clouds';
@@ -168,7 +168,28 @@ export function WallPage() {
   }, [boardId, boardExists]);
 
   const all = useMemo(() => postits || [], [postits]);
-  const filtered = useMemo(() => filter === 'all' ? all : all.filter(p => p.category === filter), [all, filter]);
+  // 지워진 포스트잇은 바로 빼지 않고 제자리에 남겨 '떼어지는' 애니메이션 후 뺀다 → 그다음 나머지가 빈자리로 미끄러져 들어옴.
+  // 확대 보기에서 지웠으면 확대 보기가 닫힌 뒤에 떼어진다. 필터·페이지 전환으로 안 보이게 된 것은 해당 없음 (전체 목록 기준)
+  const [departTrack, setDepartTrack] = useState({ boardId, all, gone: [] as PostitData[] });
+  if (departTrack.all !== all || departTrack.boardId !== boardId) {
+    const live = new Set(all.map(p => p.id));
+    const sameBoard = departTrack.boardId === boardId && !!postits;
+    setDepartTrack({
+      boardId, all,
+      gone: sameBoard ? [...departTrack.gone, ...departTrack.all].filter(p => !live.has(p.id)) : [],
+    });
+  }
+  const departing = departTrack.gone;
+  const departingIds = useMemo(() => new Set(departing.map(p => p.id)), [departing]);
+  const onDeparted = useCallback(
+    (id: string) => setDepartTrack(t => ({ ...t, gone: t.gone.filter(p => p.id !== id) })),
+    [],
+  );
+  const displayed = useMemo(
+    () => (departing.length ? [...all, ...departing].sort((a, b) => a.createdAt - b.createdAt) : all),
+    [all, departing],
+  );
+  const filtered = useMemo(() => filter === 'all' ? displayed : displayed.filter(p => p.category === filter), [displayed, filter]);
   const counts = CATEGORIES.reduce<Record<string, number>>((acc, c) => {
     acc[c.id] = c.id === 'all' ? all.length : all.filter(p => p.category === c.id).length;
     return acc;
@@ -327,12 +348,14 @@ export function WallPage() {
               enterDelay={enterDelays.get(p.id) ?? 0}
               onClick={setSelected}
               swayEnabled={SWAY_ENABLED}
+              departing={departingIds.has(p.id) ? (selected ? 'wait' : 'leave') : undefined}
+              onDeparted={onDeparted}
             />
           ))}
         </div>
       </div>
 
-      {postits && all.length === 0 && (
+      {postits && displayed.length === 0 && (
         <div className="wall-empty">
           <div className="wall-empty-note">
             <div className="wall-empty-title">아직 붙은 의견이 없어요</div>
@@ -340,7 +363,7 @@ export function WallPage() {
           </div>
         </div>
       )}
-      {all.length > 0 && filtered.length === 0 && (
+      {displayed.length > 0 && filtered.length === 0 && (
         <div className="wall-empty">
           <div className="wall-empty-sub">이 카테고리에는 아직 의견이 없어요</div>
         </div>
@@ -381,7 +404,11 @@ export function WallPage() {
       )}
 
       {selected && (
-        <FocusView selected={selected} onClose={() => setSelected(null)} />
+        <FocusView
+          selected={selected}
+          onClose={() => setSelected(null)}
+          onDelete={() => BoardStore.removePostit(board.id, selected.id)}
+        />
       )}
       {leaveTarget && (
         <Modal onClose={() => setLeaveTarget(null)}>{close => (

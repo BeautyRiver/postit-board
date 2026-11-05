@@ -137,12 +137,15 @@ describe('강사', () => {
     await assertFails(updateDoc(doc(db, 'boards', 'b1'), { title: 'x'.repeat(41) }));
     await assertFails(setDoc(doc(db, 'rooms', '12345'), { boardId: 'b1', ownerUid: HOST, title: 't', subtitle: '', openedAt: serverTimestamp() }));
   });
-  test('포스트잇 읽기·개수·삭제 가능', async () => {
+  test('포스트잇 읽기·개수·삭제 가능 (삭제는 보드 주인만)', async () => {
     await seed();
     await addDoc(collection(guestDb(), 'boards', 'b1', 'postits'), postit());
     const db = hostDb();
     const snap = await assertSucceeds(getDocs(collection(db, 'boards', 'b1', 'postits')));
     await assertSucceeds(getCountFromServer(collection(db, 'boards', 'b1', 'postits')));
+    const id = snap.docs[0].id;
+    await assertFails(deleteDoc(doc(guestDb(), 'boards', 'b1', 'postits', id)));
+    await assertFails(deleteDoc(doc(hostDb(OTHER_HOST), 'boards', 'b1', 'postits', id)));
     await assertSucceeds(deleteDoc(snap.docs[0].ref));
   });
   test('다른 강사의 보드는 수정·삭제 불가', async () => {

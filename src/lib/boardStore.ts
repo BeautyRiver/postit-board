@@ -165,6 +165,11 @@ export const BoardStore = {
     }
   },
 
+  // 포스트잇 한 장 삭제 (강사 벽의 확대 보기에서) — 보안 규칙상 보드 주인만 가능
+  async removePostit(boardId: string, postitId: string): Promise<void> {
+    await deleteDoc(doc(postitsCol(boardId), postitId));
+  },
+
   findByCode(code: string): Promise<RoomInfo | null> {
     return lookupRoom(code.trim());
   },
