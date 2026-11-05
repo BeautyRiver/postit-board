@@ -56,7 +56,10 @@ Firebase 콘솔 설정 절차는 `docs/firebase-setup.md` 참고.
   - 모든 오버레이는 열릴 때·닫힐 때 애니메이션: 닫기는 `useExitTransition(onClose)` → `.is-closing` 클래스로 퇴장(170ms) 후 언마운트. `Modal`은 children 함수로 `close`를 넘겨 취소·저장 성공도 애니메이션으로 닫힘 (부모의 onSave/onConfirm에서 바로 닫지 말 것)
   - 입장 ease-out 200~300ms·튕김 없음, 퇴장은 더 짧게, 배경과 카드는 같은 곡선. transform·opacity만 애니메이션, `transition: all` 금지
   - 버튼 누름 `scale: .97`(개별 scale 속성), hover 움직임은 `@media (hover: hover)`에서만, 작은 버튼 누름 영역 40px 확보
-  - OS '동작 줄이기'(`prefers-reduced-motion`)는 **따르지 않고 항상 재생**. Windows '애니메이션 효과' 끔·원격 데스크톱이면 브라우저가 reduce로 알려 모든 애니메이션이 사라졌던 문제
+  - **기준 환경 = Windows '애니메이션 효과'를 끈 PC (사용자 결정)**. 강의실·발표 PC는 이 설정이 꺼져 있거나 원격 데스크톱인 경우가 많고, 그러면 브라우저가 `prefers-reduced-motion: reduce`로 알린다 → 예전에 이 값을 따르다 모든 애니메이션이 사라졌음
+    - `@media (prefers-reduced-motion)`·`matchMedia('(prefers-reduced-motion…')`로 애니메이션을 끄거나 줄이는 코드를 **넣지 말 것** (audit-suite 등 스킬의 "동작 줄이기면 끄기" 권고는 이 프로젝트에 적용하지 않음)
+    - 애니메이션을 추가·수정하면 reduce 상태 브라우저로 확인: Playwright `newContext({ reducedMotion: 'reduce' })`, 직접 볼 때는 크롬 개발자도구 → Rendering → "Emulate CSS media feature prefers-reduced-motion: reduce"
+    - 확인은 개발 서버가 아니라 운영 빌드(`vite build` + `vite preview`, 에뮬레이터 연결)로
 
 ## 진행 단계 (design_handoff_postit_board/README.md "권장 작업 순서")
 1. ✅ 화면 이식 (Firebase 없이, localStorage store) — 완료
