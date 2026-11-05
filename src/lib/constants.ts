@@ -37,7 +37,7 @@ export const LIMITS = { title: 40, subtitle: 40, instructor: 20, body: 200, prom
 
 // 참여자 화면 문구 — 보드마다 강사가 바꿀 수 있고, 비워 두면 기본 문구
 export const DEFAULT_PROMPT = '오늘 수업, 어떠셨나요?';
-export const DEFAULT_PLACEHOLDER = '자유롭게 적어주세요. 강사님이 직접 보고 답변드려요 ✈';
+export const DEFAULT_PLACEHOLDER = '자유롭게 적어주세요. ✈';
 export const PROMPT_SUGGESTIONS = [
   '오늘 수업, 어떠셨나요?',
   '오늘 가장 기억에 남는 내용은?',
